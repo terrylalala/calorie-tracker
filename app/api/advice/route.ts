@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
       contents: `Here is my tracking data. Please give me personalized advice.\n\n${logsSummary}`,
       config: {
         systemInstruction: SYSTEM_PROMPT,
+        // Disable "thinking" so the token budget goes to the actual advice text
+        // instead of being consumed by internal reasoning (which truncates output).
+        thinkingConfig: { thinkingBudget: 0 },
         maxOutputTokens: 1200,
         temperature: 0.7,
       },

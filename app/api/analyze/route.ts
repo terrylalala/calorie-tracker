@@ -131,7 +131,10 @@ export async function POST(req: NextRequest) {
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: "application/json",
         responseSchema: ANALYSIS_SCHEMA,
-        maxOutputTokens: 1024,
+        // Disable "thinking": this is a structured extraction task, and thinking
+        // tokens would otherwise eat the output budget and truncate the JSON.
+        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: 2048,
         temperature: 0.2,
       },
     });
