@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  Anthropic,
-  CLAUDE_MODEL,
-  MissingApiKeyError,
-  getAnthropic,
-} from "@/lib/anthropic";
+import { Type } from "@google/genai";
+import { GEMINI_MODEL, MissingApiKeyError, getGemini } from "@/lib/gemini";
 import { Analysis } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -20,6 +16,59 @@ const ALLOWED_MEDIA_TYPES = [
 
 type AllowedMediaType = (typeof ALLOWED_MEDIA_TYPES)[number];
 
+// Reject absurdly large payloads early (base64 chars). ~10MB of base64.
+const MAX_BASE64_LENGTH = 10_000_000;
+
+// Gemini structured-output schema (OpenAPI subset) guaranteeing parseable macros.
+const ANALYSIS_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    title: { type: Type.STRING },
+    items: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          portion: { type: Type.STRING },
+          calories: { type: Type.NUMBER },
+          protein_g: { type: Type.NUMBER },
+          carbs_g: { type: Type.NUMBER },
+          fat_g: { type: Type.NUMBER },
+        },
+        required: ["name", "portion", "calories", "protein_g", "carbs_g", "fat_g"],
+        propertyOrdering: ["name", "portion", "calories", "protein_g", "carbs_g", "fat_g"],
+      },
+    },
+    calories: { type: Type.NUMBER },
+    protein_g: { type: Type.NUMBER },
+    carbs_g: { type: Type.NUMBER },
+    fat_g: { type: Type.NUMBER },
+    confidence: { type: Type.NUMBER },
+    assumptions: { type: Type.STRING },
+  },
+  required: [
+    "title",
+    "items",
+    "calories",
+    "protein_g",
+    "carbs_g",
+    "fat_g",
+    "confidence",
+    "assumptions",
+  ],
+  propertyOrdering: [
+    "title",
+    "items",
+    "calories",
+    "protein_g",
+    "carbs_g",
+    "fat_g",
+    "confidence",
+    "assumptions",
+  ],
+};
+
 const SYSTEM_PROMPT = `You are a nutrition estimation assistant. Given a photo of food, identify each item, estimate a realistic portion size, and estimate calories and macronutrients (protein, carbs, fat in grams).
 
 Guidelines:
@@ -27,29 +76,8 @@ Guidelines:
 - The per-item macros should sum to roughly the plate totals.
 - If the image does not clearly contain food, return zeros with confidence 0 and explain in "assumptions".
 - Be realistic, not aspirational — restaurant portions and cooking oils add calories.
-- Keep "assumptions" short and practical (what you assumed, what to adjust if wrong).
-
-Respond with ONLY a single JSON object and nothing else — no markdown, no code fences, no commentary. Use exactly this shape:
-{
-  "title": string,              // short name for the whole plate, e.g. "Chicken burrito bowl"
-  "items": [
-    {
-      "name": string,
-      "portion": string,        // e.g. "1 cup", "150 g", "2 slices"
-      "calories": number,
-      "protein_g": number,
-      "carbs_g": number,
-      "fat_g": number
-    }
-  ],
-  "calories": number,           // total kcal for the whole plate
-  "protein_g": number,
-  "carbs_g": number,
-  "fat_g": number,
-  "confidence": number,         // 0 to 1
-  "assumptions": string
-}
-All numbers must be plain numbers (no units, no strings).`;
+- "confidence" is your overall confidence from 0 to 1.
+- Keep "assumptions" short and practical (what you assumed, what to adjust if wrong).`;
 
 export async function POST(req: NextRequest) {
   let body: { imageBase64?: string; mediaType?: string };
@@ -79,45 +107,44 @@ export async function POST(req: NextRequest) {
     ? imageBase64.slice(imageBase64.indexOf(",") + 1)
     : imageBase64;
 
+  if (data.length > MAX_BASE64_LENGTH) {
+    return NextResponse.json(
+      { error: "Image is too large. Please use a smaller photo." },
+      { status: 413 },
+    );
+  }
+
   try {
-    const client = getAnthropic();
-    const response = await client.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [
+    const ai = getGemini();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [
         {
           role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mediaType as AllowedMediaType,
-                data,
-              },
-            },
-            {
-              type: "text",
-              text: "Analyze this food photo and return the macro estimate as JSON.",
-            },
+          parts: [
+            { inlineData: { mimeType: mediaType, data } },
+            { text: "Analyze this food photo and return the macro estimate." },
           ],
         },
       ],
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        responseMimeType: "application/json",
+        responseSchema: ANALYSIS_SCHEMA,
+        maxOutputTokens: 1024,
+        temperature: 0.2,
+      },
     });
 
-    if (response.stop_reason === "refusal") {
+    // Safety / blocked-response guards.
+    if (response.promptFeedback?.blockReason) {
       return NextResponse.json(
         { error: "The image could not be analyzed. Please try a different photo." },
         { status: 422 },
       );
     }
 
-    const text = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("\n");
-
+    const text = response.text ?? "";
     const analysis = parseAnalysis(text);
     if (!analysis) {
       return NextResponse.json(
@@ -183,16 +210,19 @@ function handleError(err: unknown) {
   if (err instanceof MissingApiKeyError) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-  if (err instanceof Anthropic.RateLimitError) {
+  const status = typeof (err as { status?: unknown })?.status === "number"
+    ? (err as { status: number }).status
+    : undefined;
+  if (status === 429) {
     return NextResponse.json(
       { error: "Rate limited by the AI service. Please wait a moment and retry." },
       { status: 429 },
     );
   }
-  if (err instanceof Anthropic.APIError) {
+  if (status && status >= 400 && status < 600) {
     return NextResponse.json(
-      { error: `AI service error: ${err.message}` },
-      { status: err.status ?? 502 },
+      { error: "The AI service returned an error. Please try again." },
+      { status },
     );
   }
   console.error("[/api/analyze] unexpected error", err);

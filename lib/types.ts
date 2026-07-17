@@ -14,7 +14,7 @@ export interface AnalyzedItem extends Macros {
   portion: string;
 }
 
-/** Raw result returned by /api/analyze (Claude vision, structured output). */
+/** Raw result returned by /api/analyze (Gemini vision, structured output). */
 export interface Analysis extends Macros {
   title: string;
   items: AnalyzedItem[];
@@ -35,7 +35,7 @@ export interface FoodEntry extends Macros {
   portion: string;
   /** How this entry was created. */
   source: "photo" | "manual";
-  /** Optional free-text note (e.g. Claude's assumptions). */
+  /** Optional free-text note (e.g. the model's assumptions). */
   note?: string;
 }
 

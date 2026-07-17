@@ -229,7 +229,7 @@ function TodayView({
         {analyzing ? (
           <div className="loading-block">
             <span className="spinner" />
-            <span>Analyzing your photo with Claude…</span>
+            <span>Analyzing your photo with Gemini…</span>
           </div>
         ) : (
           <>

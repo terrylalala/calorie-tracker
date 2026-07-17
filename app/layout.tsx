@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AI Calorie Tracker",
-  description: "Snap a photo of your food and track calories & macros with Claude.",
+  description: "Snap a photo of your food and track calories & macros with Gemini.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

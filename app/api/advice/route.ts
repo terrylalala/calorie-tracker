@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  Anthropic,
-  CLAUDE_MODEL,
-  MissingApiKeyError,
-  getAnthropic,
-} from "@/lib/anthropic";
+import { GEMINI_MODEL, MissingApiKeyError, getGemini } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -38,32 +33,25 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const client = getAnthropic();
-    const response = await client.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: 1200,
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Here is my tracking data. Please give me personalized advice.\n\n${logsSummary}`,
-        },
-      ],
+    const ai = getGemini();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: `Here is my tracking data. Please give me personalized advice.\n\n${logsSummary}`,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        maxOutputTokens: 1200,
+        temperature: 0.7,
+      },
     });
 
-    if (response.stop_reason === "refusal") {
+    if (response.promptFeedback?.blockReason) {
       return NextResponse.json(
         { error: "Advice could not be generated for this request." },
         { status: 422 },
       );
     }
 
-    const advice = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b.type === "text" ? b.text : ""))
-      .join("\n")
-      .trim();
-
+    const advice = (response.text ?? "").trim();
     if (!advice) {
       return NextResponse.json(
         { error: "No advice returned. Please try again." },
@@ -81,16 +69,19 @@ function handleError(err: unknown) {
   if (err instanceof MissingApiKeyError) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
-  if (err instanceof Anthropic.RateLimitError) {
+  const status = typeof (err as { status?: unknown })?.status === "number"
+    ? (err as { status: number }).status
+    : undefined;
+  if (status === 429) {
     return NextResponse.json(
       { error: "Rate limited by the AI service. Please wait a moment and retry." },
       { status: 429 },
     );
   }
-  if (err instanceof Anthropic.APIError) {
+  if (status && status >= 400 && status < 600) {
     return NextResponse.json(
-      { error: `AI service error: ${err.message}` },
-      { status: err.status ?? 502 },
+      { error: "The AI service returned an error. Please try again." },
+      { status },
     );
   }
   console.error("[/api/advice] unexpected error", err);
