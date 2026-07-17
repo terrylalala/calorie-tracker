@@ -52,6 +52,7 @@ export default function AdviceSheet({
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grip" />
+        <div className="sheet-scroll">
         <h2>💡 Personalized advice</h2>
 
         {!hasData && (
@@ -81,10 +82,12 @@ export default function AdviceSheet({
           General wellness guidance based on approximate AI estimates — not medical
           advice.
         </p>
-
-        <button className="btn block" style={{ marginTop: 8 }} onClick={onClose}>
-          Close
-        </button>
+        </div>
+        <div className="sheet-footer">
+          <button className="btn block" onClick={onClose}>
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );

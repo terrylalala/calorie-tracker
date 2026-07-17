@@ -63,6 +63,7 @@ export default function AnalyzeSheet({
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grip" />
+        <div className="sheet-scroll">
         {previewUrl && <img className="thumb" src={previewUrl} alt="Food" />}
         <h2>Review estimate</h2>
         {noFood ? (
@@ -124,13 +125,16 @@ export default function AnalyzeSheet({
           </div>
         </div>
 
-        <div className="fab-row" style={{ marginTop: 8 }}>
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn primary" onClick={handleSave}>
-            Save to log
-          </button>
+        </div>
+        <div className="sheet-footer">
+          <div className="fab-row">
+            <button className="btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" onClick={handleSave}>
+              Save to log
+            </button>
+          </div>
         </div>
       </div>
     </div>

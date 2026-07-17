@@ -50,6 +50,7 @@ export default function ManualEntryForm({
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grip" />
+        <div className="sheet-scroll">
         <h2>Add food manually</h2>
         <p className="assumptions">Enter what you can — only a name and calories are required.</p>
 
@@ -112,13 +113,16 @@ export default function ManualEntryForm({
           </div>
         </div>
 
-        <div className="fab-row" style={{ marginTop: 8 }}>
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn primary" disabled={!canSave} onClick={handleSave}>
-            Save to log
-          </button>
+        </div>
+        <div className="sheet-footer">
+          <div className="fab-row">
+            <button className="btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" disabled={!canSave} onClick={handleSave}>
+              Save to log
+            </button>
+          </div>
         </div>
       </div>
     </div>
