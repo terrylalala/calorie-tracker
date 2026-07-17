@@ -79,7 +79,7 @@ Browser (React)
   → POST /api/analyze  (base64 image)      ─┐
   → POST /api/advice   (recent logs + goals) │  server-side, key stays here
   → localStorage: entries[], goals{}         ▼
-Next.js API routes  →  @google/genai  →  Gemini (gemini-2.5-flash)
+Next.js API routes  →  @google/genai  →  Gemini (gemini-flash-latest)
 ```
 
 - `app/api/analyze/route.ts` — vision call using Gemini's structured output

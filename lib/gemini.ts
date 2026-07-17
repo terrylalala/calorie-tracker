@@ -6,7 +6,10 @@ import { GoogleGenAI, ApiError } from "@google/genai";
  * for the /api routes.
  */
 
-export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+// `gemini-flash-latest` is an alias that always resolves to the current Flash
+// model, so pinned versions being retired won't break the app. Override with the
+// GEMINI_MODEL env var to pin a specific version (e.g. gemini-3.5-flash).
+export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
 // Accept either GEMINI_API_KEY (preferred) or GOOGLE_API_KEY as a fallback.
 function apiKey(): string | undefined {
