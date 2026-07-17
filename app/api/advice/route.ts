@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GEMINI_MODEL, MissingApiKeyError, getGemini } from "@/lib/gemini";
+import { checkAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,6 +18,9 @@ Rules:
 - Format as short Markdown: a one-line summary, then 3-5 bullet points. Keep it under ~200 words. No preamble like "Here is your advice".`;
 
 export async function POST(req: NextRequest) {
+  const authError = checkAuth(req);
+  if (authError) return authError;
+
   let body: { logsSummary?: string };
   try {
     body = await req.json();

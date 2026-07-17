@@ -3,6 +3,7 @@ import { FoodEntry, Goals, DEFAULT_GOALS } from "./types";
 // Versioned localStorage keys so we can migrate later without collisions.
 const ENTRIES_KEY = "act.entries.v1";
 const GOALS_KEY = "act.goals.v1";
+const PASSWORD_KEY = "act.pw.v1";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined" && !!window.localStorage;
@@ -50,6 +51,27 @@ export function saveGoals(goals: Goals): void {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(GOALS_KEY, JSON.stringify(goals));
+  } catch {
+    // ignore
+  }
+}
+
+// ---- Access password (only needed when the app is deployed with APP_PASSWORD) ----
+
+export function loadPassword(): string {
+  if (!isBrowser()) return "";
+  try {
+    return window.localStorage.getItem(PASSWORD_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function savePassword(pw: string): void {
+  if (!isBrowser()) return;
+  try {
+    if (pw) window.localStorage.setItem(PASSWORD_KEY, pw);
+    else window.localStorage.removeItem(PASSWORD_KEY);
   } catch {
     // ignore
   }

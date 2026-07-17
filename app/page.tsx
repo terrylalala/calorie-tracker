@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FoodEntry, Goals, Analysis, DEFAULT_GOALS } from "@/lib/types";
-import { loadEntries, saveEntries, loadGoals, saveGoals } from "@/lib/storage";
+import {
+  loadEntries,
+  saveEntries,
+  loadGoals,
+  saveGoals,
+  loadPassword,
+  savePassword,
+} from "@/lib/storage";
+import { apiHeaders } from "@/lib/api";
 import {
   dateKey,
   friendlyDate,
@@ -67,7 +75,7 @@ export default function Home() {
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiHeaders(),
         body: JSON.stringify({ imageBase64: img.base64, mediaType: img.mediaType }),
       });
       const data = await res.json();
@@ -319,6 +327,12 @@ function GoalsView({
   const [fat, setFat] = useState(String(goals.fat_g));
   const [saved, setSaved] = useState(false);
 
+  const [pw, setPw] = useState("");
+  const [pwSaved, setPwSaved] = useState(false);
+  useEffect(() => {
+    setPw(loadPassword());
+  }, []);
+
   const num = (s: string) => {
     const n = parseFloat(s);
     return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
@@ -335,7 +349,14 @@ function GoalsView({
     setTimeout(() => setSaved(false), 1800);
   }
 
+  function handleSavePassword() {
+    savePassword(pw.trim());
+    setPwSaved(true);
+    setTimeout(() => setPwSaved(false), 1800);
+  }
+
   return (
+    <>
     <div className="card">
       <p className="card-title">Daily targets</p>
       <div className="field">
@@ -380,5 +401,27 @@ function GoalsView({
         {saved ? "✓ Saved" : "Save goals"}
       </button>
     </div>
+
+    <div className="card">
+      <p className="card-title">Access password</p>
+      <p className="assumptions" style={{ marginTop: -4 }}>
+        Only needed if this app is deployed with an <code>APP_PASSWORD</code> set.
+        Leave blank for local use.
+      </p>
+      <div className="field">
+        <label>Password</label>
+        <input
+          type="password"
+          value={pw}
+          onChange={(e) => setPw(e.target.value)}
+          placeholder="(none)"
+          autoComplete="off"
+        />
+      </div>
+      <button className="btn block" onClick={handleSavePassword}>
+        {pwSaved ? "✓ Saved" : "Save password"}
+      </button>
+    </div>
+    </>
   );
 }

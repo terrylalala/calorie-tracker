@@ -69,6 +69,16 @@ Push to GitHub and import into [Vercel](https://vercel.com). In the Vercel proje
 settings, add an environment variable `GEMINI_API_KEY` with your key. No database
 needed — logs live in each visitor's browser.
 
+### Protect your key when deploying publicly
+
+The `/api/analyze` and `/api/advice` routes call Gemini with your key. If you deploy
+to a public URL, **also set `APP_PASSWORD`** (any strong passphrase) in the same env
+settings. When it's set, the endpoints reject requests that don't include the
+matching password — so a stranger who finds your URL can't run up your Gemini bill.
+Enter the same password once in the app's **Goals → Access password** field; it's
+saved in your browser and sent with each request. Leave `APP_PASSWORD` unset for
+local use and no password is required.
+
 ---
 
 ## How it works

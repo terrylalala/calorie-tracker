@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { markdownToHtml } from "@/lib/markdown";
+import { apiHeaders } from "@/lib/api";
 
 /** Sheet that fetches and renders personalized advice from /api/advice. */
 export default function AdviceSheet({
@@ -26,7 +27,7 @@ export default function AdviceSheet({
       try {
         const res = await fetch("/api/advice", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: apiHeaders(),
           body: JSON.stringify({ logsSummary }),
         });
         const data = await res.json();
