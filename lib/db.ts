@@ -101,6 +101,16 @@ async function initSchema(): Promise<void> {
     )
   `;
 
+  // Failed invite-code attempts per IP, for brute-force protection.
+  await sql`
+    create table if not exists invite_attempts (
+      ip           text primary key,
+      fails        int  not null default 0,
+      first_at     timestamptz not null default now(),
+      locked_until timestamptz
+    )
+  `;
+
   // Legacy single-user table (pre-accounts). Kept so nothing is destroyed.
   await sql`
     create table if not exists settings (

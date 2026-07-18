@@ -83,6 +83,10 @@ With a database configured, the app is **multi-user**:
 - The **first** registered account adopts any data created before accounts existed.
 - Each account has a **daily cap** on AI calls (`DAILY_ANALYZE_LIMIT`,
   `DAILY_ADVICE_LIMIT`) so one enthusiastic user can't run up the whole Gemini bill.
+- The invite endpoint is **brute-force protected**: 10 wrong codes from one IP
+  triggers a 15-minute lockout (failures older than an hour are forgiven). This
+  matters once the Google app is published, because the invite code is then the
+  only thing between a stranger and an account.
 
 Google OAuth setup: Google Cloud → *Google Auth Platform* → **Clients** → Web
 application, with redirect URIs `http://localhost:3000/api/auth/callback/google`

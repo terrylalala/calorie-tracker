@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { inviteRequired, verifyInvite } from "@/lib/auth";
 import { ensureSchema, getSql, hasDb } from "@/lib/db";
+import { checkLockout, clearFailures, clientIp, recordFailure } from "@/lib/inviteGuard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +63,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Brute-force protection: the invite code is the only gate once the Google
+  // app is published, so limit how fast an IP can guess.
+  const ip = clientIp(req);
+  const lockedOut = await checkLockout(ip);
+  if (lockedOut) return lockedOut;
+
   let body: { inviteCode?: string };
   try {
     body = await req.json();
@@ -70,6 +77,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!verifyInvite(body.inviteCode ?? "")) {
+    await recordFailure(ip);
     return NextResponse.json(
       { error: "That invite code isn't right." },
       { status: 403 },
@@ -77,6 +85,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await clearFailures(ip);
     await ensureSchema();
     const sql = getSql();
 
