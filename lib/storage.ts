@@ -1,9 +1,11 @@
 import { FoodEntry, Goals, DEFAULT_GOALS } from "./types";
+import { Profile } from "./goalsCalc";
 
 // Versioned localStorage keys so we can migrate later without collisions.
 const ENTRIES_KEY = "act.entries.v1";
 const GOALS_KEY = "act.goals.v1";
 const PASSWORD_KEY = "act.pw.v1";
+const PROFILE_KEY = "act.profile.v1";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined" && !!window.localStorage;
@@ -72,6 +74,27 @@ export function savePassword(pw: string): void {
   try {
     if (pw) window.localStorage.setItem(PASSWORD_KEY, pw);
     else window.localStorage.removeItem(PASSWORD_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// ---- Goal Advisor profile (so re-opening remembers the last inputs) ----
+
+export function loadProfile(): Partial<Profile> {
+  if (!isBrowser()) return {};
+  try {
+    const raw = window.localStorage.getItem(PROFILE_KEY);
+    return raw ? (JSON.parse(raw) as Partial<Profile>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveProfile(profile: Partial<Profile>): void {
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   } catch {
     // ignore
   }

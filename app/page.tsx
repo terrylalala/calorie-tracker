@@ -27,6 +27,7 @@ import ManualEntryForm from "@/components/ManualEntryForm";
 import EntryCard from "@/components/EntryCard";
 import TrendsChart from "@/components/TrendsChart";
 import AdviceSheet from "@/components/AdviceSheet";
+import GoalAdvisor from "@/components/GoalAdvisor";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -329,6 +330,7 @@ function GoalsView({
 
   const [pw, setPw] = useState("");
   const [pwSaved, setPwSaved] = useState(false);
+  const [showAdvisor, setShowAdvisor] = useState(false);
   useEffect(() => {
     setPw(loadPassword());
   }, []);
@@ -355,10 +357,27 @@ function GoalsView({
     setTimeout(() => setPwSaved(false), 1800);
   }
 
+  function applySuggestion(g: Goals) {
+    setCalories(String(g.calories));
+    setProtein(String(g.protein_g));
+    setCarbs(String(g.carbs_g));
+    setFat(String(g.fat_g));
+    onSave(g);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  }
+
   return (
     <>
     <div className="card">
       <p className="card-title">Daily targets</p>
+      <button
+        className="btn block"
+        style={{ marginBottom: 14 }}
+        onClick={() => setShowAdvisor(true)}
+      >
+        ✨ Suggest goals for me
+      </button>
       <div className="field">
         <label>Calories (kcal)</label>
         <input
@@ -422,6 +441,13 @@ function GoalsView({
         {pwSaved ? "✓ Saved" : "Save password"}
       </button>
     </div>
+
+    {showAdvisor && (
+      <GoalAdvisor
+        onApply={applySuggestion}
+        onClose={() => setShowAdvisor(false)}
+      />
+    )}
     </>
   );
 }

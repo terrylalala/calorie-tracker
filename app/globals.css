@@ -339,13 +339,56 @@ button {
   color: var(--text-dim);
   margin-bottom: 6px;
 }
-.field input {
+.field input,
+.field select {
   width: 100%;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--text);
   padding: 12px 14px;
+  font-size: 16px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.field select {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%239aa3b2' stroke-width='1.5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 34px;
+}
+
+/* Segmented button control (sex, goal). */
+.seg {
+  display: flex;
+  gap: 8px;
+}
+.seg button {
+  flex: 1;
+  padding: 12px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+}
+.seg button.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: transparent;
+}
+
+/* Suggested-targets result block inside the advisor. */
+.result-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 8px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .grid-4 {
   display: grid;

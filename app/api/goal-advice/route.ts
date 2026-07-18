@@ -1,0 +1,91 @@
+import { NextRequest, NextResponse } from "next/server";
+import { GEMINI_MODEL, MissingApiKeyError, getGemini } from "@/lib/gemini";
+import { checkAuth } from "@/lib/auth";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const SYSTEM_PROMPT = `You are a supportive nutrition and wellness coach.
+
+The app has already CALCULATED daily calorie and macro targets for the user from their profile using the Mifflin-St Jeor equation. Your job is to explain those targets in warm, plain language — do NOT recalculate or contradict the numbers you are given.
+
+Rules:
+- Briefly explain why these targets fit their stated goal (lose / maintain / gain) and profile.
+- Give 2-3 concrete, encouraging tips for hitting them (e.g. protein sources, meal timing, consistency).
+- This is GENERAL WELLNESS guidance, not medical or clinical advice. Add a short note to consult a doctor or dietitian before big changes, and especially if pregnant, under 18, managing a health condition, or with any history of disordered eating.
+- Keep it under ~160 words. Format as short Markdown: a one-line summary then a few bullet points. No preamble like "Here is".`;
+
+export async function POST(req: NextRequest) {
+  const authError = checkAuth(req);
+  if (authError) return authError;
+
+  let body: { summary?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const { summary } = body;
+  if (!summary || typeof summary !== "string") {
+    return NextResponse.json({ error: "Missing 'summary'." }, { status: 400 });
+  }
+
+  try {
+    const ai = getGemini();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: `Here is my profile and the targets the app calculated. Please explain them.\n\n${summary}`,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: 900,
+        temperature: 0.7,
+      },
+    });
+
+    if (response.promptFeedback?.blockReason) {
+      return NextResponse.json(
+        { error: "Explanation could not be generated." },
+        { status: 422 },
+      );
+    }
+
+    const advice = (response.text ?? "").trim();
+    if (!advice) {
+      return NextResponse.json(
+        { error: "No explanation returned. Please try again." },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json({ advice });
+  } catch (err) {
+    return handleError(err);
+  }
+}
+
+function handleError(err: unknown) {
+  if (err instanceof MissingApiKeyError) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+  const status = typeof (err as { status?: unknown })?.status === "number"
+    ? (err as { status: number }).status
+    : undefined;
+  if (status === 429) {
+    return NextResponse.json(
+      { error: "Rate limited by the AI service. Please wait a moment and retry." },
+      { status: 429 },
+    );
+  }
+  if (status && status >= 400 && status < 600) {
+    return NextResponse.json(
+      { error: "The AI service returned an error. Please try again." },
+      { status },
+    );
+  }
+  console.error("[/api/goal-advice] unexpected error", err);
+  return NextResponse.json(
+    { error: "Unexpected server error while generating the explanation." },
+    { status: 500 },
+  );
+}
