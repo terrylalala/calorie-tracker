@@ -6,6 +6,21 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "comment": "Sibling project. --prefix runs it from its own directory while this stays the primary working dir.",
+      "name": "price-scanner",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "--prefix",
+        "/Users/admin/Desktop/Claude Code Projects/Price Scanner",
+        "dev",
+        "--",
+        "--port",
+        "3040"
+      ],
+      "port": 3040
     }
   ]
 }
