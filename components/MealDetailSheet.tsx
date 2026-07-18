@@ -97,8 +97,7 @@ export default function MealDetailSheet({
 
           {entry.source === "photo" && !entry.hasPhoto && (
             <p className="assumptions" style={{ marginTop: 14 }}>
-              No photo was saved for this meal — it was logged before photo saving
-              was added.
+              No photo saved for this meal.
             </p>
           )}
         </div>
