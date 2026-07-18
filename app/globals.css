@@ -834,6 +834,18 @@ button {
   padding: 10px 26px 0;
 }
 
+.notice {
+  color: var(--protein);
+  background: rgba(124, 143, 95, 0.1);
+  border: 1px solid rgba(124, 143, 95, 0.28);
+  border-radius: 11px;
+  padding: 11px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
 .error-note {
   color: var(--danger);
   background: rgba(177, 69, 60, 0.08);

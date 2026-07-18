@@ -6,8 +6,10 @@ button that reviews your recent logs and gives practical, general-wellness tips.
 
 Built with **Next.js (App Router)** + **React**, mobile-first. The Gemini API is
 called only from **server-side routes**, so your API key never reaches the browser.
-Your food log is stored locally in your browser (`localStorage`) — no database, fully
-private to your device.
+
+Your food log is stored in **Neon Postgres** when a `DATABASE_URL` is configured, so
+it syncs across your devices and survives a browser data wipe. Without one, the app
+falls back to browser `localStorage` and still works fully offline-of-database.
 
 ---
 
@@ -81,15 +83,32 @@ local use and no password is required.
 
 ---
 
+## Storage
+
+| | With `DATABASE_URL` | Without |
+|---|---|---|
+| Log lives in | Neon Postgres | browser `localStorage` |
+| Syncs across devices | ✅ | ❌ (per-device) |
+| Survives clearing browser data | ✅ | ❌ |
+
+On first load with a database configured, any logs already in your browser are
+**migrated up automatically** (one time), so nothing you've tracked is lost.
+localStorage is still kept as a local mirror for offline viewing.
+
+Tables (`entries`, `settings`) are created automatically on first use — no
+migration step to run.
+
 ## How it works
 
 ```
 Browser (React)
   → capture/upload photo, downscale to JPEG in-browser
-  → POST /api/analyze  (base64 image)      ─┐
-  → POST /api/advice   (recent logs + goals) │  server-side, key stays here
-  → localStorage: entries[], goals{}         ▼
-Next.js API routes  →  @google/genai  →  Gemini (gemini-flash-latest)
+  → POST /api/analyze  (base64 image)        ─┐
+  → POST /api/advice   (recent logs + goals)  │  server-side, key stays here
+  → GET/POST/DELETE /api/entries              │  food log CRUD
+  → GET/PUT /api/settings                     ▼
+Next.js API routes  →  @google/genai      →  Gemini (gemini-flash-latest)
+                    →  @neondatabase/serverless  →  Neon Postgres
 ```
 
 - `app/api/analyze/route.ts` — vision call using Gemini's structured output

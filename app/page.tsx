@@ -2,17 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FoodEntry, Goals, Analysis, DEFAULT_GOALS } from "@/lib/types";
-import {
-  loadEntries,
-  saveEntries,
-  loadGoals,
-  saveGoals,
-  loadPassword,
-  savePassword,
-  loadProfile,
-  saveProfile,
-} from "@/lib/storage";
+import { loadPassword, savePassword, loadProfile } from "@/lib/storage";
 import { apiHeaders } from "@/lib/api";
+import {
+  StorageMode,
+  detectMode,
+  loadAll,
+  addEntry as storeAddEntry,
+  removeEntry as storeRemoveEntry,
+  putSettings,
+} from "@/lib/dataStore";
 import {
   dateKey,
   friendlyDate,
@@ -49,34 +48,63 @@ export default function Home() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
+  const [mode, setMode] = useState<StorageMode>("local");
 
   useEffect(() => {
-    setEntries(loadEntries());
-    setGoals(loadGoals());
-    setMounted(true);
+    let cancelled = false;
+    (async () => {
+      const detected = await detectMode();
+      const data = await loadAll(detected);
+      if (cancelled) return;
+      setMode(data.mode);
+      setEntries(data.entries);
+      setGoals(data.goals);
+      if (data.error) setError(data.error);
+      if (data.migrated) {
+        setNotice(
+          `Synced ${data.migrated} existing ${data.migrated === 1 ? "entry" : "entries"} to your database.`,
+        );
+      }
+      setMounted(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  function persistEntries(next: FoodEntry[]) {
+  async function addEntry(entry: FoodEntry) {
+    const next = [entry, ...entries];
     setEntries(next);
-    saveEntries(next);
-  }
-
-  function addEntry(entry: FoodEntry) {
-    persistEntries([entry, ...entries]);
     setAnalysis(null);
     setPreviewUrl(undefined);
     setShowManual(false);
     setTab("today");
+    try {
+      await storeAddEntry(mode, entry, next);
+    } catch {
+      setError("Saved on this device, but couldn't reach the database.");
+    }
   }
 
-  function deleteEntry(id: string) {
-    persistEntries(entries.filter((e) => e.id !== id));
+  async function deleteEntry(id: string) {
+    const next = entries.filter((e) => e.id !== id);
+    setEntries(next);
+    try {
+      await storeRemoveEntry(mode, id, next);
+    } catch {
+      setError("Removed on this device, but couldn't reach the database.");
+    }
   }
 
-  function updateGoals(g: Goals) {
+  async function updateGoals(g: Goals) {
     setGoals(g);
-    saveGoals(g);
+    try {
+      await putSettings(mode, { goals: g, profile: loadProfile() });
+    } catch {
+      setError("Saved on this device, but couldn't reach the database.");
+    }
   }
 
   async function handleCapture(img: CapturedImage) {
@@ -140,6 +168,11 @@ export default function Home() {
 
       <div className="content">
         {error && <div className="error-note">{error}</div>}
+        {notice && (
+          <div className="notice" onClick={() => setNotice(null)}>
+            ☁️ {notice}
+          </div>
+        )}
 
         {tab === "today" && (
           <TodayView
@@ -160,7 +193,9 @@ export default function Home() {
           <CoachView logsSummary={logsSummary} hasData={entries.length > 0} />
         )}
 
-        {tab === "settings" && <SettingsView goals={goals} onSave={updateGoals} />}
+        {tab === "settings" && (
+          <SettingsView goals={goals} onSave={updateGoals} mode={mode} />
+        )}
       </div>
 
       <TabBar active={tab} onChange={setTab} />
@@ -314,9 +349,11 @@ function HistoryView({ entries, goals }: { entries: FoodEntry[]; goals: Goals })
 function SettingsView({
   goals,
   onSave,
+  mode,
 }: {
   goals: Goals;
   onSave: (g: Goals) => void;
+  mode: StorageMode;
 }) {
   const [calories, setCalories] = useState(String(goals.calories));
   const [protein, setProtein] = useState(String(goals.protein_g));
@@ -365,7 +402,7 @@ function SettingsView({
   function pickDirection(d: GoalDirection) {
     setDirection(d);
     const p = { ...loadProfile(), goal: d };
-    saveProfile(p);
+    void putSettings(mode, { profile: p });
     if (isProfileComplete(p)) {
       const s = suggestGoals(p);
       applyGoals({
