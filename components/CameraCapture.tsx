@@ -73,22 +73,23 @@ export default function CameraCapture({
 
   return (
     <>
-      <div className="fab-row">
-        <button
-          className="btn primary"
-          disabled={disabled}
-          onClick={() => cameraRef.current?.click()}
-        >
-          📷 Take photo
-        </button>
-        <button
-          className="btn"
-          disabled={disabled}
-          onClick={() => libraryRef.current?.click()}
-        >
-          🖼️ Choose photo
-        </button>
-      </div>
+      <button
+        className="camera"
+        disabled={disabled}
+        onClick={() => cameraRef.current?.click()}
+        aria-label="Take a photo"
+      >
+        📷
+      </button>
+      <h3>Log a meal</h3>
+      <p>Snap a photo — Gemini will estimate the rest</p>
+      <button
+        className="btn block alt"
+        disabled={disabled}
+        onClick={() => libraryRef.current?.click()}
+      >
+        Choose from library
+      </button>
       <input
         ref={cameraRef}
         type="file"

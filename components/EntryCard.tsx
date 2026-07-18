@@ -53,7 +53,6 @@ export default function EntryCard({
     hour: "numeric",
     minute: "2-digit",
   });
-  const macros = `${entry.protein_g}p · ${entry.carbs_g}c · ${entry.fat_g}f`;
   return (
     <div className="entry">
       <div className="emoji">{foodEmoji(entry.name)}</div>
@@ -61,8 +60,10 @@ export default function EntryCard({
         <div className="name">{entry.name}</div>
         <div className="meta">
           {time}
-          {entry.portion ? ` · ${entry.portion}` : ""} · {macros}
-          {entry.source === "photo" ? " · 📷" : ""}
+          {entry.portion ? ` · ${entry.portion}` : ""}
+        </div>
+        <div className="meta">
+          P {entry.protein_g} · C {entry.carbs_g} · F {entry.fat_g}
         </div>
       </div>
       <div className="kcal">{entry.calories}</div>
