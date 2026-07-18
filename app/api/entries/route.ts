@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { del, put } from "@vercel/blob";
-import { NoDatabaseError, ensureSchema, getSql, hasDb } from "@/lib/db";
+import { NoDatabaseError, ensureSchema, getSql, hasBlob, hasDb } from "@/lib/db";
 import { ownerId, requireUser } from "@/lib/session";
 import { AnalyzedItem, FoodEntry } from "@/lib/types";
 
@@ -52,7 +52,10 @@ async function uploadPhoto(
   base64: string,
   mediaType: string,
 ): Promise<string | null> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return null;
+  if (!hasBlob()) {
+    console.warn("[/api/entries] photo skipped: Blob storage is not configured");
+    return null;
+  }
   if (!ALLOWED_PHOTO_TYPES.includes(mediaType)) return null;
   const data = base64.includes(",") ? base64.slice(base64.indexOf(",") + 1) : base64;
   if (!data || data.length > MAX_PHOTO_BASE64) return null;
@@ -224,7 +227,7 @@ export async function DELETE(req: NextRequest) {
     `) as unknown as { photo_url: string | null }[];
 
     const photo = removed[0]?.photo_url;
-    if (photo && process.env.BLOB_READ_WRITE_TOKEN) {
+    if (photo && hasBlob()) {
       try {
         await del(photo);
       } catch (err) {

@@ -15,6 +15,18 @@ export function hasDb(): boolean {
   return !!dbUrl();
 }
 
+/**
+ * Whether Blob storage is usable.
+ *
+ * On Vercel the project authenticates to Blob with OIDC (workload identity),
+ * where only BLOB_STORE_ID is present and no static token exists. Locally we
+ * fall back to a read-write token. Requiring the token alone would silently
+ * disable photo uploads in production once the token is revoked.
+ */
+export function hasBlob(): boolean {
+  return !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
+}
+
 export class NoDatabaseError extends Error {
   constructor() {
     super("No database configured (DATABASE_URL / POSTGRES_URL is unset).");
