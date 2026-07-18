@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GEMINI_MODEL, MissingApiKeyError, getGemini } from "@/lib/gemini";
-import { checkAuth } from "@/lib/auth";
+import { ownerId, requireUser } from "@/lib/session";
+import { consume, rateLimited } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,8 +17,11 @@ Rules:
 - Keep it under ~160 words. Format as short Markdown: a one-line summary then a few bullet points. No preamble like "Here is".`;
 
 export async function POST(req: NextRequest) {
-  const authError = checkAuth(req);
-  if (authError) return authError;
+  const authz = await requireUser(req);
+  if (!authz.ok) return authz.response;
+
+  const quota = await consume(ownerId(authz.user), "advice");
+  if (!quota.allowed) return rateLimited(quota.limit);
 
   let body: { summary?: string };
   try {

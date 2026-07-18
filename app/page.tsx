@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FoodEntry, Goals, Analysis, DEFAULT_GOALS } from "@/lib/types";
-import { loadPassword, savePassword, loadProfile } from "@/lib/storage";
+import { loadProfile } from "@/lib/storage";
+import AuthGate from "@/components/AuthGate";
+import AccountCard from "@/components/AccountCard";
 import { apiHeaders } from "@/lib/api";
 import {
   StorageMode,
@@ -37,7 +39,15 @@ import DayCard from "@/components/DayCard";
 import CoachView from "@/components/CoachView";
 import GoalAdvisor from "@/components/GoalAdvisor";
 
-export default function Home() {
+export default function Page() {
+  return (
+    <AuthGate>
+      <TrackerApp />
+    </AuthGate>
+  );
+}
+
+function TrackerApp() {
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<Tab>("today");
   const [entries, setEntries] = useState<FoodEntry[]>([]);
@@ -361,13 +371,10 @@ function SettingsView({
   const [fat, setFat] = useState(String(goals.fat_g));
   const [saved, setSaved] = useState(false);
 
-  const [pw, setPw] = useState("");
-  const [pwSaved, setPwSaved] = useState(false);
   const [showAdvisor, setShowAdvisor] = useState(false);
   const [direction, setDirection] = useState<GoalDirection>("maintain");
 
   useEffect(() => {
-    setPw(loadPassword());
     const p = loadProfile();
     if (p.goal) setDirection(p.goal);
   }, []);
@@ -472,32 +479,15 @@ function SettingsView({
         {saved ? "✓ Saved" : "Save changes"}
       </button>
 
-      <div className="card" style={{ marginTop: 18 }}>
-        <p className="card-title">Access password</p>
-        <p className="assumptions" style={{ marginTop: -6 }}>
-          Only needed if this app is deployed with an <code>APP_PASSWORD</code> set.
-          Leave blank for local use.
+      <AccountCard />
+
+      <div className="card">
+        <p className="card-title">Storage</p>
+        <p className="assumptions" style={{ marginBottom: 0, marginTop: -6 }}>
+          {mode === "db"
+            ? "Your log is saved to your account and syncs across your devices."
+            : "Your log is saved on this device only."}
         </p>
-        <div className="field">
-          <label>Password</label>
-          <input
-            type="password"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            placeholder="(none)"
-            autoComplete="off"
-          />
-        </div>
-        <button
-          className="btn block"
-          onClick={() => {
-            savePassword(pw.trim());
-            setPwSaved(true);
-            setTimeout(() => setPwSaved(false), 1800);
-          }}
-        >
-          {pwSaved ? "✓ Saved" : "Save password"}
-        </button>
       </div>
 
       <p className="disclaimer">

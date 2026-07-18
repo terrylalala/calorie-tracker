@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkAuth } from "@/lib/auth";
 import { NoDatabaseError, ensureSchema, getSql, hasDb } from "@/lib/db";
+import { ownerId, requireUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,15 +11,16 @@ interface SettingsRow {
 }
 
 export async function GET(req: NextRequest) {
-  const authError = checkAuth(req);
-  if (authError) return authError;
+  const authz = await requireUser(req);
+  if (!authz.ok) return authz.response;
   if (!hasDb()) return noDb();
+  const uid = ownerId(authz.user);
 
   try {
     await ensureSchema();
     const sql = getSql();
     const rows = (await sql`
-      select goals, profile from settings where id = 1
+      select goals, profile from user_settings where user_id = ${uid}
     `) as unknown as SettingsRow[];
     const row = rows[0];
     return NextResponse.json({
@@ -32,9 +33,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const authError = checkAuth(req);
-  if (authError) return authError;
+  const authz = await requireUser(req);
+  if (!authz.ok) return authz.response;
   if (!hasDb()) return noDb();
+  const uid = ownerId(authz.user);
 
   let body: { goals?: unknown; profile?: unknown };
   try {
@@ -46,15 +48,14 @@ export async function PUT(req: NextRequest) {
   try {
     await ensureSchema();
     const sql = getSql();
-    // Only overwrite the keys that were actually supplied.
     const goals = body.goals === undefined ? null : JSON.stringify(body.goals);
     const profile = body.profile === undefined ? null : JSON.stringify(body.profile);
     await sql`
-      insert into settings (id, goals, profile)
-      values (1, ${goals}::jsonb, ${profile}::jsonb)
-      on conflict (id) do update set
-        goals   = coalesce(excluded.goals, settings.goals),
-        profile = coalesce(excluded.profile, settings.profile)
+      insert into user_settings (user_id, goals, profile)
+      values (${uid}, ${goals}::jsonb, ${profile}::jsonb)
+      on conflict (user_id) do update set
+        goals   = coalesce(excluded.goals, user_settings.goals),
+        profile = coalesce(excluded.profile, user_settings.profile)
     `;
     return NextResponse.json({ ok: true });
   } catch (err) {

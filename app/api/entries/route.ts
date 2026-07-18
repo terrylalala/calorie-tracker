@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkAuth } from "@/lib/auth";
 import { NoDatabaseError, ensureSchema, getSql, hasDb } from "@/lib/db";
+import { ownerId, requireUser } from "@/lib/session";
 import { FoodEntry } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -36,7 +36,6 @@ function toEntry(r: Row): FoodEntry {
   };
 }
 
-/** Coerce arbitrary JSON into a safe FoodEntry, or null if unusable. */
 function parseEntry(v: unknown): FoodEntry | null {
   if (typeof v !== "object" || v === null) return null;
   const o = v as Record<string, unknown>;
@@ -68,9 +67,10 @@ function parseEntry(v: unknown): FoodEntry | null {
 }
 
 export async function GET(req: NextRequest) {
-  const authError = checkAuth(req);
-  if (authError) return authError;
+  const authz = await requireUser(req);
+  if (!authz.ok) return authz.response;
   if (!hasDb()) return noDb();
+  const uid = ownerId(authz.user);
 
   try {
     await ensureSchema();
@@ -78,6 +78,7 @@ export async function GET(req: NextRequest) {
     const rows = (await sql`
       select id, ts, day, name, portion, calories, protein_g, carbs_g, fat_g, source, note
       from entries
+      where user_id = ${uid}
       order by ts desc
       limit 2000
     `) as unknown as Row[];
@@ -87,11 +88,11 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** Accepts a single entry `{entry}` or a batch `{entries:[...]}` (used by migration). */
 export async function POST(req: NextRequest) {
-  const authError = checkAuth(req);
-  if (authError) return authError;
+  const authz = await requireUser(req);
+  if (!authz.ok) return authz.response;
   if (!hasDb()) return noDb();
+  const uid = ownerId(authz.user);
 
   let body: { entry?: unknown; entries?: unknown };
   try {
@@ -110,15 +111,18 @@ export async function POST(req: NextRequest) {
     await ensureSchema();
     const sql = getSql();
     for (const e of parsed) {
+      // `where entries.user_id = uid` on the update branch stops one account
+      // overwriting another's row by guessing its id.
       await sql`
-        insert into entries (id, ts, day, name, portion, calories, protein_g, carbs_g, fat_g, source, note)
-        values (${e.id}, ${e.timestamp}, ${e.date}, ${e.name}, ${e.portion},
+        insert into entries (id, user_id, ts, day, name, portion, calories, protein_g, carbs_g, fat_g, source, note)
+        values (${e.id}, ${uid}, ${e.timestamp}, ${e.date}, ${e.name}, ${e.portion},
                 ${e.calories}, ${e.protein_g}, ${e.carbs_g}, ${e.fat_g}, ${e.source}, ${e.note ?? null})
         on conflict (id) do update set
           ts = excluded.ts, day = excluded.day, name = excluded.name,
           portion = excluded.portion, calories = excluded.calories,
           protein_g = excluded.protein_g, carbs_g = excluded.carbs_g,
           fat_g = excluded.fat_g, source = excluded.source, note = excluded.note
+        where entries.user_id = ${uid}
       `;
     }
     return NextResponse.json({ saved: parsed.length });
@@ -128,19 +132,19 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const authError = checkAuth(req);
-  if (authError) return authError;
+  const authz = await requireUser(req);
+  if (!authz.ok) return authz.response;
   if (!hasDb()) return noDb();
+  const uid = ownerId(authz.user);
 
   const id = req.nextUrl.searchParams.get("id");
-  if (!id) {
-    return NextResponse.json({ error: "Missing 'id'." }, { status: 400 });
-  }
+  if (!id) return NextResponse.json({ error: "Missing 'id'." }, { status: 400 });
 
   try {
     await ensureSchema();
     const sql = getSql();
-    await sql`delete from entries where id = ${id}`;
+    // Scoped delete: you can only remove your own rows.
+    await sql`delete from entries where id = ${id} and user_id = ${uid}`;
     return NextResponse.json({ deleted: id });
   } catch (err) {
     return fail(err, "delete entry");

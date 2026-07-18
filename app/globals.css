@@ -834,6 +834,15 @@ button {
   padding: 10px 26px 0;
 }
 
+.linklike {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: inherit;
+  text-decoration: underline;
+}
+
 .notice {
   color: var(--protein);
   background: rgba(124, 143, 95, 0.1);

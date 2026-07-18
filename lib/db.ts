@@ -62,7 +62,46 @@ async function initSchema(): Promise<void> {
   await sql`create index if not exists entries_day_idx on entries (day)`;
   await sql`create index if not exists entries_ts_idx on entries (ts desc)`;
 
-  // Single-row table: this is a personal, single-user app.
+  // --- Multi-user support ---
+
+  // Registered accounts. Signing in with Google is not enough: an account only
+  // appears here once it has been admitted with the invite code.
+  await sql`
+    create table if not exists users (
+      id         text primary key,
+      email      text not null,
+      name       text,
+      created_at timestamptz not null default now()
+    )
+  `;
+
+  // Owner of each entry. Nullable so rows created before accounts existed can
+  // be claimed by the first registered user.
+  await sql`alter table entries add column if not exists user_id text`;
+  await sql`create index if not exists entries_user_ts_idx on entries (user_id, ts desc)`;
+
+  // Per-user settings. A new table rather than migrating the old single-row
+  // `settings` table, which is left untouched as legacy.
+  await sql`
+    create table if not exists user_settings (
+      user_id text primary key,
+      goals   jsonb,
+      profile jsonb
+    )
+  `;
+
+  // Daily AI usage counters, for per-user rate limiting.
+  await sql`
+    create table if not exists usage (
+      user_id text not null,
+      day     text not null,
+      kind    text not null,
+      count   int  not null default 0,
+      primary key (user_id, day, kind)
+    )
+  `;
+
+  // Legacy single-user table (pre-accounts). Kept so nothing is destroyed.
   await sql`
     create table if not exists settings (
       id      int primary key default 1,

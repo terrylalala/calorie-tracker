@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Type } from "@google/genai";
 import { GEMINI_MODEL, MissingApiKeyError, getGemini } from "@/lib/gemini";
-import { checkAuth } from "@/lib/auth";
+import { ownerId, requireUser } from "@/lib/session";
+import { consume, rateLimited } from "@/lib/rateLimit";
 import { Analysis } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -81,8 +82,11 @@ Guidelines:
 - Keep "assumptions" short and practical (what you assumed, what to adjust if wrong).`;
 
 export async function POST(req: NextRequest) {
-  const authError = checkAuth(req);
-  if (authError) return authError;
+  const authz = await requireUser(req);
+  if (!authz.ok) return authz.response;
+
+  const quota = await consume(ownerId(authz.user), "analyze");
+  if (!quota.allowed) return rateLimited(quota.limit);
 
   let body: { imageBase64?: string; mediaType?: string };
   try {

@@ -71,15 +71,27 @@ Push to GitHub and import into [Vercel](https://vercel.com). In the Vercel proje
 settings, add an environment variable `GEMINI_API_KEY` with your key. No database
 needed — logs live in each visitor's browser.
 
-### Protect your key when deploying publicly
+### Accounts (sharing with other people)
 
-The `/api/analyze` and `/api/advice` routes call Gemini with your key. If you deploy
-to a public URL, **also set `APP_PASSWORD`** (any strong passphrase) in the same env
-settings. When it's set, the endpoints reject requests that don't include the
-matching password — so a stranger who finds your URL can't run up your Gemini bill.
-Enter the same password once in the app's **Goals → Access password** field; it's
-saved in your browser and sent with each request. Leave `APP_PASSWORD` unset for
-local use and no password is required.
+With a database configured, the app is **multi-user**:
+
+- People **sign in with Google** — no passwords are ever stored by this app.
+- Signing in isn't enough: a new account must be admitted with the **invite code**
+  (`APP_PASSWORD`). Share that code only with people you want using the app.
+- Every meal, goal and profile is scoped to the signed-in account. One account
+  cannot read, modify or delete another's data.
+- The **first** registered account adopts any data created before accounts existed.
+- Each account has a **daily cap** on AI calls (`DAILY_ANALYZE_LIMIT`,
+  `DAILY_ADVICE_LIMIT`) so one enthusiastic user can't run up the whole Gemini bill.
+
+Google OAuth setup: Google Cloud → *Google Auth Platform* → **Clients** → Web
+application, with redirect URIs `http://localhost:3000/api/auth/callback/google`
+and `https://YOUR-DOMAIN/api/auth/callback/google`. While the app is in *Testing*,
+only emails listed under **Audience → Test users** can sign in; publish the app to
+let anyone with the invite code join.
+
+Without a database the app stays single-user and falls back to `APP_PASSWORD` as a
+simple shared gate.
 
 ---
 

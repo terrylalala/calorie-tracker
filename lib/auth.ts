@@ -25,6 +25,21 @@ export function checkAuth(req: NextRequest): NextResponse | null {
   return null;
 }
 
+/**
+ * Verify an invite code against APP_PASSWORD. Used when registering a new
+ * account. If APP_PASSWORD is unset, registration is open (no invite needed).
+ */
+export function verifyInvite(code: string): boolean {
+  const expected = process.env.APP_PASSWORD;
+  if (!expected) return true;
+  return safeEqual(code ?? "", expected);
+}
+
+/** Whether an invite code is required to register. */
+export function inviteRequired(): boolean {
+  return !!process.env.APP_PASSWORD;
+}
+
 /** Constant-time string comparison to avoid leaking length/content via timing. */
 function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a, "utf8");
