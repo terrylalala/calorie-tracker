@@ -26,6 +26,10 @@ export interface Analysis extends Macros {
 
 /** A saved log entry. Macros are the (possibly user-edited) final numbers. */
 export interface FoodEntry extends Macros {
+  /** Per-item breakdown from the analysis, kept so the detail view can show it. */
+  items?: AnalyzedItem[];
+  /** True when a photo is stored for this meal (served via /api/photo/[id]). */
+  hasPhoto?: boolean;
   id: string;
   /** ISO timestamp of when the food was logged. */
   timestamp: string;

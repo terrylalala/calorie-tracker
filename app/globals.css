@@ -273,6 +273,20 @@ button {
   font-size: 21px;
   flex: 0 0 auto;
 }
+.entry.tappable {
+  cursor: pointer;
+}
+.entry.tappable:active {
+  background: var(--surface-2);
+}
+.entry-photo {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--surface-2);
+}
 .entry .info {
   flex: 1;
   min-width: 0;
@@ -684,13 +698,94 @@ button {
   color: inherit;
 }
 
+/* ---- Meal detail ---- */
+.detail-name {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 700;
+  margin: 4px 0 2px;
+  line-height: 1.2;
+}
+.detail-meta {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin: 0;
+}
+/* Read-only macro value inside .mbox (detail view uses text, not inputs). */
+.mbox .mval {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 19px;
+}
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+.item-row:last-of-type {
+  border-bottom: none;
+}
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+.item-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.item-meta {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.item-cal {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
 /* ---- History day cards ---- */
 .daycard {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 15px;
   margin-bottom: 10px;
+  overflow: hidden;
+}
+.daycard.expanded {
+  border-color: var(--accent);
+}
+/* The whole summary is the tap target for expanding the day. */
+.daycard-head {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 15px;
+  font: inherit;
+  color: inherit;
+}
+.daycard-head:active {
+  background: var(--surface-2);
+}
+.daycard-body {
+  padding: 0 12px 12px;
+}
+.daycard-body .entry {
+  background: var(--bg);
+}
+.dtoggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.dtoggle .chev {
+  color: var(--accent);
+  font-size: 10px;
 }
 .daycard .top {
   display: flex;

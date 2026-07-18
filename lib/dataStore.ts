@@ -143,18 +143,29 @@ export async function loadAll(mode: StorageMode): Promise<LoadedData> {
   }
 }
 
-/** Persist a new entry. Always mirrors to localStorage. */
+export interface PhotoUpload {
+  base64: string;
+  mediaType: string;
+}
+
+/** Persist a new entry (optionally with its photo). Mirrors to localStorage. */
 export async function addEntry(
   mode: StorageMode,
   entry: FoodEntry,
   next: FoodEntry[],
+  photo?: PhotoUpload,
 ): Promise<void> {
   saveEntries(next);
   if (mode !== "db") return;
   const res = await fetch("/api/entries", {
     method: "POST",
     headers: apiHeaders(),
-    body: JSON.stringify({ entry }),
+    body: JSON.stringify({
+      entry,
+      ...(photo
+        ? { photoBase64: photo.base64, photoMediaType: photo.mediaType }
+        : {}),
+    }),
   });
   if (!res.ok) throw new Error("Could not save to the database.");
 }

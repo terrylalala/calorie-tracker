@@ -45,17 +45,43 @@ function foodEmoji(name: string): string {
 export default function EntryCard({
   entry,
   onDelete,
+  onOpen,
 }: {
   entry: FoodEntry;
   onDelete: (id: string) => void;
+  onOpen?: (entry: FoodEntry) => void;
 }) {
   const time = new Date(entry.timestamp).toLocaleTimeString(undefined, {
     hour: "numeric",
     minute: "2-digit",
   });
   return (
-    <div className="entry">
-      <div className="emoji">{foodEmoji(entry.name)}</div>
+    <div
+      className={`entry${onOpen ? " tappable" : ""}`}
+      onClick={onOpen ? () => onOpen(entry) : undefined}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={
+        onOpen
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onOpen(entry);
+              }
+            }
+          : undefined
+      }
+    >
+      {entry.hasPhoto ? (
+        <img
+          className="entry-photo"
+          src={`/api/photo/${encodeURIComponent(entry.id)}`}
+          alt=""
+          loading="lazy"
+        />
+      ) : (
+        <div className="emoji">{foodEmoji(entry.name)}</div>
+      )}
       <div className="info">
         <div className="name">{entry.name}</div>
         <div className="meta">
@@ -70,7 +96,10 @@ export default function EntryCard({
       <button
         className="del"
         aria-label="Delete entry"
-        onClick={() => onDelete(entry.id)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(entry.id);
+        }}
       >
         ✕
       </button>

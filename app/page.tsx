@@ -38,6 +38,7 @@ import TrendsChart from "@/components/TrendsChart";
 import DayCard from "@/components/DayCard";
 import CoachView from "@/components/CoachView";
 import GoalAdvisor from "@/components/GoalAdvisor";
+import MealDetailSheet from "@/components/MealDetailSheet";
 
 export default function Page() {
   return (
@@ -57,6 +58,8 @@ function TrackerApp() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | undefined>();
+  const [captured, setCaptured] = useState<CapturedImage | null>(null);
+  const [detail, setDetail] = useState<FoodEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
@@ -86,13 +89,23 @@ function TrackerApp() {
 
   async function addEntry(entry: FoodEntry) {
     const next = [entry, ...entries];
+    const photo =
+      entry.source === "photo" && captured
+        ? { base64: captured.base64, mediaType: captured.mediaType }
+        : undefined;
     setEntries(next);
     setAnalysis(null);
     setPreviewUrl(undefined);
+    setCaptured(null);
     setShowManual(false);
     setTab("today");
     try {
-      await storeAddEntry(mode, entry, next);
+      await storeAddEntry(mode, entry, next, photo);
+      if (photo) {
+        // Re-read so the new row comes back with hasPhoto set.
+        const fresh = await loadAll(mode);
+        setEntries(fresh.entries);
+      }
     } catch {
       setError("Saved on this device, but couldn't reach the database.");
     }
@@ -120,6 +133,7 @@ function TrackerApp() {
   async function handleCapture(img: CapturedImage) {
     setError(null);
     setPreviewUrl(img.dataUrl);
+    setCaptured(img);
     setAnalyzing(true);
     try {
       const res = await fetch("/api/analyze", {
@@ -194,10 +208,18 @@ function TrackerApp() {
             onError={setError}
             onManual={() => setShowManual(true)}
             onDelete={deleteEntry}
+            onOpen={setDetail}
           />
         )}
 
-        {tab === "history" && <HistoryView entries={entries} goals={goals} />}
+        {tab === "history" && (
+          <HistoryView
+            entries={entries}
+            goals={goals}
+            onOpen={setDetail}
+            onDelete={deleteEntry}
+          />
+        )}
 
         {tab === "coach" && (
           <CoachView logsSummary={logsSummary} hasData={entries.length > 0} />
@@ -218,12 +240,21 @@ function TrackerApp() {
           onClose={() => {
             setAnalysis(null);
             setPreviewUrl(undefined);
+            setCaptured(null);
           }}
         />
       )}
 
       {showManual && (
         <ManualEntryForm onSave={addEntry} onClose={() => setShowManual(false)} />
+      )}
+
+      {detail && (
+        <MealDetailSheet
+          entry={detail}
+          onDelete={deleteEntry}
+          onClose={() => setDetail(null)}
+        />
       )}
     </div>
   );
@@ -240,6 +271,7 @@ function TodayView({
   onError,
   onManual,
   onDelete,
+  onOpen,
 }: {
   totals: ReturnType<typeof totalsForDate>;
   goals: Goals;
@@ -249,6 +281,7 @@ function TodayView({
   onError: (m: string) => void;
   onManual: () => void;
   onDelete: (id: string) => void;
+  onOpen: (e: FoodEntry) => void;
 }) {
   return (
     <>
@@ -295,7 +328,9 @@ function TodayView({
           Snap a photo of your next meal to get started.
         </div>
       ) : (
-        entries.map((e) => <EntryCard key={e.id} entry={e} onDelete={onDelete} />)
+        entries.map((e) => (
+          <EntryCard key={e.id} entry={e} onDelete={onDelete} onOpen={onOpen} />
+        ))
       )}
     </>
   );
@@ -303,8 +338,19 @@ function TodayView({
 
 // ---------- History ----------
 
-function HistoryView({ entries, goals }: { entries: FoodEntry[]; goals: Goals }) {
+function HistoryView({
+  entries,
+  goals,
+  onOpen,
+  onDelete,
+}: {
+  entries: FoodEntry[];
+  goals: Goals;
+  onOpen: (e: FoodEntry) => void;
+  onDelete: (id: string) => void;
+}) {
   const [range, setRange] = useState<7 | 30>(7);
+  const [openDay, setOpenDay] = useState<string | null>(null);
   const series = useMemo(() => dailySeries(entries, range), [entries, range]);
   const avg = useMemo(() => averageOfLoggedDays(series), [series]);
   const logged = series.filter((d) => d.count > 0);
@@ -348,7 +394,18 @@ function HistoryView({ entries, goals }: { entries: FoodEntry[]; goals: Goals })
       ) : (
         [...logged]
           .reverse()
-          .map((d) => <DayCard key={d.date} day={d} goals={goals} />)
+          .map((d) => (
+            <DayCard
+              key={d.date}
+              day={d}
+              goals={goals}
+              entries={entries.filter((e) => e.date === d.date)}
+              expanded={openDay === d.date}
+              onToggle={() => setOpenDay(openDay === d.date ? null : d.date)}
+              onOpen={onOpen}
+              onDelete={onDelete}
+            />
+          ))
       )}
     </>
   );

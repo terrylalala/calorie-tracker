@@ -80,6 +80,12 @@ async function initSchema(): Promise<void> {
   await sql`alter table entries add column if not exists user_id text`;
   await sql`create index if not exists entries_user_ts_idx on entries (user_id, ts desc)`;
 
+  // Meal photo (Blob URL) and the model's per-item breakdown. photo_url is
+  // server-side only — it is never sent to the browser; images are served
+  // through /api/photo/[id], which checks ownership first.
+  await sql`alter table entries add column if not exists photo_url text`;
+  await sql`alter table entries add column if not exists items jsonb`;
+
   // Per-user settings. A new table rather than migrating the old single-row
   // `settings` table, which is left untouched as legacy.
   await sql`

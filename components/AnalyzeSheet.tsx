@@ -81,6 +81,8 @@ export default function AnalyzeSheet({
       fat_g: num(fat),
       source: "photo",
       note: analysis.assumptions || undefined,
+      // Keep the per-item breakdown so the meal detail view can show it later.
+      items: items.length > 0 ? items : undefined,
     };
     onSave(entry);
   }
