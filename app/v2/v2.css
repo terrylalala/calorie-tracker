@@ -1,0 +1,420 @@
+/*
+ * Design candidate 2 — for comparison against the shipped cream/serif look
+ * (tagged design/cream-serif-v1). Not wired to any data.
+ *
+ * EVERY rule is scoped under .v2 on purpose. app/globals.css is 998 lines of
+ * unscoped class selectors (.card, .brand, .row…), and this file would collide
+ * with it silently otherwise — a half-styled screen that looks like a bug in
+ * neither design. Scoping means the two can coexist with globals.css untouched.
+ *
+ * Palette from reference 1 (Nutro): bright pastels, white cards, airy sans.
+ * Capture affordance from reference 2: a character face, not a camera glyph.
+ * Information architecture from reference 3 (Vegeat): greeting, one hero
+ * number, macros as bars, meals grouped by sitting.
+ */
+
+.v2 {
+  /* Pastels lifted from reference 1. Cyan leads, pink accents, yellow and
+     lavender carry the secondary macros so each has its own identity. */
+  --v2-cyan: #5ed6d0;
+  --v2-cyan-deep: #35b8b1;
+  --v2-pink: #ff8ba7;
+  --v2-yellow: #ffd54d;
+  --v2-lavender: #c3a6f2;
+  --v2-mint: #a8e6c4;
+
+  --v2-bg: #f4f6f8;
+  --v2-card: #ffffff;
+  --v2-ink: #2b2f38;
+  --v2-ink-soft: #6b7280;
+  --v2-ink-faint: #a3aab5;
+  --v2-line: #edf0f3;
+
+  --v2-r: 22px;
+  --v2-r-sm: 14px;
+  --v2-nav-h: 76px;
+  --v2-maxw: 520px;
+
+  --v2-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+
+  font-family: var(--v2-sans);
+  background: var(--v2-bg);
+  color: var(--v2-ink);
+  min-height: 100vh;
+  max-width: var(--v2-maxw);
+  margin: 0 auto;
+  padding: 0 18px calc(var(--v2-nav-h) + env(safe-area-inset-bottom) + 24px);
+  -webkit-font-smoothing: antialiased;
+}
+
+.v2 *,
+.v2 *::before,
+.v2 *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- greeting ---------- */
+
+.v2-greet {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 2px 18px;
+}
+
+.v2-greet-hi {
+  font-size: 0.85rem;
+  color: var(--v2-ink-soft);
+  margin: 0 0 3px;
+}
+
+.v2-greet-name {
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.v2-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--v2-cyan), var(--v2-lavender));
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+/* ---------- hero: calories remaining ---------- */
+
+.v2-hero {
+  background: var(--v2-card);
+  border-radius: var(--v2-r);
+  padding: 22px 20px 18px;
+  box-shadow: 0 2px 10px rgba(43, 47, 56, 0.05);
+}
+
+.v2-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+/* The ring is an SVG; this only positions the number stacked inside it. */
+.v2-ring {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  flex-shrink: 0;
+}
+
+.v2-ring svg {
+  transform: rotate(-90deg);
+  display: block;
+}
+
+.v2-ring-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.v2-ring-num {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.v2-ring-unit {
+  font-size: 0.68rem;
+  color: var(--v2-ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+.v2-hero-side {
+  flex: 1;
+  min-width: 0;
+}
+
+.v2-hero-eyebrow {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--v2-ink-faint);
+  margin: 0 0 6px;
+}
+
+.v2-hero-line {
+  font-size: 0.92rem;
+  color: var(--v2-ink-soft);
+  margin: 0;
+}
+
+.v2-hero-line strong {
+  color: var(--v2-ink);
+  font-weight: 600;
+}
+
+/* ---------- macro bars ---------- */
+
+.v2-macros {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--v2-line);
+  display: grid;
+  gap: 14px;
+}
+
+.v2-macro-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+}
+
+.v2-macro-name {
+  font-weight: 600;
+}
+
+.v2-macro-val {
+  color: var(--v2-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.v2-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--v2-line);
+  overflow: hidden;
+}
+
+.v2-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+}
+
+.v2-bar.pro span { background: var(--v2-cyan); }
+.v2-bar.carb span { background: var(--v2-yellow); }
+.v2-bar.fat span { background: var(--v2-pink); }
+
+/* ---------- section heading ---------- */
+
+.v2-section {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 26px 2px 12px;
+}
+
+.v2-section h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.v2-section span {
+  font-size: 0.8rem;
+  color: var(--v2-ink-faint);
+}
+
+/* ---------- meals, grouped by sitting ---------- */
+
+.v2-sitting + .v2-sitting {
+  margin-top: 18px;
+}
+
+.v2-sitting-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 2px 8px;
+}
+
+.v2-chip {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 99px;
+  color: var(--v2-ink);
+}
+
+.v2-chip.breakfast { background: color-mix(in srgb, var(--v2-yellow) 45%, transparent); }
+.v2-chip.lunch { background: color-mix(in srgb, var(--v2-cyan) 40%, transparent); }
+.v2-chip.dinner { background: color-mix(in srgb, var(--v2-lavender) 40%, transparent); }
+.v2-chip.snack { background: color-mix(in srgb, var(--v2-pink) 35%, transparent); }
+
+.v2-sitting-kcal {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--v2-ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.v2-meal {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: var(--v2-card);
+  border-radius: var(--v2-r-sm);
+  padding: 11px 13px;
+  box-shadow: 0 1px 5px rgba(43, 47, 56, 0.04);
+}
+
+.v2-meal + .v2-meal {
+  margin-top: 8px;
+}
+
+.v2-thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+}
+
+.v2-meal-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.v2-meal-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v2-meal-sub {
+  font-size: 0.76rem;
+  color: var(--v2-ink-faint);
+  margin: 2px 0 0;
+}
+
+.v2-meal-kcal {
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.v2-empty {
+  background: var(--v2-card);
+  border-radius: var(--v2-r-sm);
+  padding: 18px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--v2-ink-faint);
+}
+
+/* ---------- bottom nav with a raised capture button ---------- */
+
+.v2-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--v2-nav-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: color-mix(in srgb, var(--v2-card) 92%, transparent);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--v2-line);
+  z-index: 20;
+}
+
+.v2-nav-inner {
+  max-width: var(--v2-maxw);
+  height: var(--v2-nav-h);
+  margin: 0 auto;
+  padding: 0 14px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+}
+
+.v2-tab {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  color: var(--v2-ink-faint);
+  font-size: 0.64rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.v2-tab.active {
+  color: var(--v2-cyan-deep);
+  font-weight: 600;
+}
+
+.v2-tab svg {
+  width: 21px;
+  height: 21px;
+}
+
+/* The capture button sits proud of the bar — reference 2's central action. */
+.v2-capture {
+  justify-self: center;
+  width: 62px;
+  height: 62px;
+  margin-top: -26px;
+  border-radius: 20px;
+  border: 4px solid var(--v2-card);
+  background: linear-gradient(150deg, var(--v2-cyan), var(--v2-cyan-deep));
+  box-shadow: 0 6px 16px rgba(53, 184, 177, 0.36);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.14s ease;
+}
+
+.v2-capture:active {
+  transform: scale(0.94);
+}
+
+.v2-capture svg {
+  width: 34px;
+  height: 34px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-capture { transition: none; }
+}
+
+/* ---------- comparison banner ---------- */
+
+/* This route exists only to be compared against the live design, so it says so.
+   Without this it is too easy to mistake it for the real app on a phone. */
+.v2-banner {
+  background: var(--v2-ink);
+  color: #fff;
+  border-radius: var(--v2-r-sm);
+  padding: 10px 14px;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  margin-top: 22px;
+}
+
+.v2-banner b {
+  color: var(--v2-cyan);
+}
