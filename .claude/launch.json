@@ -21,6 +21,21 @@
         "3040"
       ],
       "port": 3040
+    },
+    {
+      "comment": "Same sibling project on a second port, so it can run alongside a session that already holds 3040.",
+      "name": "price-scanner-3050",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "--prefix",
+        "/Users/admin/Desktop/Claude Code Projects/Price Scanner",
+        "dev",
+        "--",
+        "--port",
+        "3050"
+      ],
+      "port": 3050
     }
   ]
 }
