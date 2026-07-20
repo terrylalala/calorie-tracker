@@ -172,7 +172,7 @@ function TrackerApp() {
       <div className="app">
         <div className="brand">
           <span className="dot" />
-          Calorie Tracker
+          AI Cal Boy
         </div>
         <div className="content">
           <div className="loading-block">
@@ -187,7 +187,7 @@ function TrackerApp() {
     <div className="app">
       <div className="brand">
         <span className="dot" />
-        Calorie Tracker
+        AI Cal Boy
       </div>
 
       <div className="content">

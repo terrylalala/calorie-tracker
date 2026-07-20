@@ -66,7 +66,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       <div className="app">
         <div className="brand">
           <span className="dot" />
-          Calorie Tracker
+          AI Cal Boy
         </div>
         <div className="content">
           <div className="loading-block">
@@ -87,7 +87,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     <div className="app">
       <div className="brand">
         <span className="dot" />
-        Calorie Tracker
+        AI Cal Boy
       </div>
 
       <div className="content">
