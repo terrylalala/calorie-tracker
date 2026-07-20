@@ -47,25 +47,43 @@ function sittingFor(hhmm: string): Sitting {
 
 const ORDER: Sitting[] = ["Breakfast", "Lunch", "Snack", "Dinner"];
 
-/** Reference 2's character, as SVG so it stays crisp and takes the palette. */
+/**
+ * The character from reference 2, drawn larger and rounder.
+ *
+ * Kawaii faces read as cute because of specific proportions, not just "a
+ * smile": eyes set wide and low, glossy highlights, a small open mouth with a
+ * tongue, and blush. The first attempt was a flat white smile at 34px in the
+ * tab bar and lost all of that — at this size the features actually land.
+ *
+ * SVG rather than an image so it stays crisp and inherits the palette.
+ */
 function FaceIcon() {
   return (
-    <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      {/* scan-frame corners */}
-      <g stroke="#fff" strokeWidth="2.6" strokeLinecap="round">
-        <path d="M4 12V7a3 3 0 0 1 3-3h5" />
-        <path d="M28 4h5a3 3 0 0 1 3 3v5" />
-        <path d="M36 28v5a3 3 0 0 1-3 3h-5" />
-        <path d="M12 36H7a3 3 0 0 1-3-3v-5" />
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      {/* rounded card the face sits on */}
+      <rect x="6" y="6" width="52" height="52" rx="17" fill="#fff" />
+
+      {/* scan-frame corners, so it still reads as "capture" */}
+      <g stroke="var(--v2-cyan-deep)" strokeWidth="3.4" strokeLinecap="round">
+        <path d="M13 22v-4a5 5 0 0 1 5-5h4" />
+        <path d="M42 13h4a5 5 0 0 1 5 5v4" />
+        <path d="M51 42v4a5 5 0 0 1-5 5h-4" />
+        <path d="M22 51h-4a5 5 0 0 1-5-5v-4" />
       </g>
-      {/* eyes */}
-      <circle cx="15" cy="17.5" r="2.3" fill="#fff" />
-      <circle cx="25" cy="17.5" r="2.3" fill="#fff" />
-      {/* open smile */}
-      <path
-        d="M13.5 23.5c1.6 3 4 4.5 6.5 4.5s4.9-1.5 6.5-4.5z"
-        fill="#fff"
-      />
+
+      {/* blush, under the eyes and set wide */}
+      <ellipse cx="19.5" cy="38.5" rx="4.6" ry="3" fill="#ff8ba7" opacity="0.5" />
+      <ellipse cx="44.5" cy="38.5" rx="4.6" ry="3" fill="#ff8ba7" opacity="0.5" />
+
+      {/* eyes: tall ovals with a highlight, which is what makes them read as glossy */}
+      <ellipse cx="24.5" cy="30" rx="4.1" ry="5.2" fill="#2b2f38" />
+      <ellipse cx="39.5" cy="30" rx="4.1" ry="5.2" fill="#2b2f38" />
+      <circle cx="26.1" cy="27.8" r="1.5" fill="#fff" />
+      <circle cx="41.1" cy="27.8" r="1.5" fill="#fff" />
+
+      {/* small open mouth with a tongue */}
+      <path d="M27 39.5h10a5 5 0 0 1-10 0z" fill="#2b2f38" />
+      <path d="M30.6 43.4a5 5 0 0 0 2.9.9 5 5 0 0 0 1.9-.4 2.4 2.4 0 0 0-4.8-.5z" fill="#ff8ba7" />
     </svg>
   );
 }
@@ -83,17 +101,17 @@ export default function V2Preview() {
   const [tab, setTab] = useState("today");
 
   const eaten = SAMPLE.reduce((n, m) => n + m.kcal, 0);
-  const left = Math.max(0, GOALS.calories - eaten);
-  const pct = Math.min(1, eaten / GOALS.calories);
 
-  // Sample macro totals, chosen to be plausible against the meals above.
-  const macros = [
-    { key: "pro", name: "Protein", have: 62, goal: GOALS.protein_g, unit: "g" },
-    { key: "carb", name: "Carbs", have: 168, goal: GOALS.carbs_g, unit: "g" },
-    { key: "fat", name: "Fat", have: 41, goal: GOALS.fat_g, unit: "g" },
+  // Four dials, as in the shipped design. Each keeps its own colour so the row
+  // is scannable without reading the labels.
+  const dials = [
+    { key: "cal", name: "Kcal", have: eaten, goal: GOALS.calories, colour: "var(--v2-cyan-deep)" },
+    { key: "pro", name: "Protein", have: 62, goal: GOALS.protein_g, colour: "var(--v2-cyan)" },
+    { key: "carb", name: "Carbs", have: 168, goal: GOALS.carbs_g, colour: "var(--v2-yellow)" },
+    { key: "fat", name: "Fat", have: 41, goal: GOALS.fat_g, colour: "var(--v2-pink)" },
   ];
 
-  const R = 46;
+  const R = 25;
   const C = 2 * Math.PI * R;
 
   const grouped = ORDER.map((s) => ({
@@ -111,48 +129,43 @@ export default function V2Preview() {
         <div className="v2-avatar">T</div>
       </header>
 
-      <section className="v2-hero">
-        <div className="v2-hero-top">
-          <div className="v2-ring">
-            <svg width="104" height="104" viewBox="0 0 104 104">
-              <circle cx="52" cy="52" r={R} fill="none" stroke="#edf0f3" strokeWidth="9" />
-              <circle
-                cx="52" cy="52" r={R} fill="none"
-                stroke="var(--v2-cyan)" strokeWidth="9" strokeLinecap="round"
-                strokeDasharray={C} strokeDashoffset={C * (1 - pct)}
-              />
-            </svg>
-            <div className="v2-ring-label">
-              <div className="v2-ring-num">{left.toLocaleString()}</div>
-              <div className="v2-ring-unit">kcal left</div>
-            </div>
-          </div>
-
-          <div className="v2-hero-side">
-            <p className="v2-hero-eyebrow">Today</p>
-            <p className="v2-hero-line">
-              <strong>{eaten.toLocaleString()}</strong> of{" "}
-              {GOALS.calories.toLocaleString()} kcal eaten across{" "}
-              <strong>{SAMPLE.length}</strong> meals.
-            </p>
-          </div>
-        </div>
-
-        <div className="v2-macros">
-          {macros.map((m) => (
-            <div key={m.key}>
-              <div className="v2-macro-head">
-                <span className="v2-macro-name">{m.name}</span>
-                <span className="v2-macro-val">
-                  {m.have} / {m.goal}
-                  {m.unit}
-                </span>
+      <section className="v2-rings">
+        {dials.map((d) => {
+          const pct = Math.min(1, d.have / d.goal);
+          return (
+            <div className="v2-ring" key={d.key}>
+              <div className="v2-ring-dial">
+                <svg width="62" height="62" viewBox="0 0 62 62">
+                  <circle cx="31" cy="31" r={R} fill="none" stroke="#edf0f3" strokeWidth="6" />
+                  <circle
+                    cx="31" cy="31" r={R} fill="none"
+                    stroke={d.colour} strokeWidth="6" strokeLinecap="round"
+                    strokeDasharray={C} strokeDashoffset={C * (1 - pct)}
+                  />
+                </svg>
+                {/* No thousands separator inside the dials. "1,335" measured
+                    43px in a 62px ring — it fits, but only just, and the comma
+                    buys nothing at this size. */}
+                <div className="v2-ring-mid">
+                  <div className="v2-ring-num">{d.have}</div>
+                  <div className="v2-ring-goal">/{d.goal}</div>
+                </div>
               </div>
-              <div className={`v2-bar ${m.key}`}>
-                <span style={{ width: `${Math.min(100, (m.have / m.goal) * 100)}%` }} />
-              </div>
+              <div className="v2-ring-name">{d.name}</div>
             </div>
-          ))}
+          );
+        })}
+      </section>
+
+      <section className="v2-capture-card">
+        <button className="v2-face-btn" aria-label="Take a photo of your meal">
+          <FaceIcon />
+        </button>
+        <h2 className="v2-capture-title">Log a meal</h2>
+        <p className="v2-capture-sub">Snap a photo &mdash; the rest is filled in for you</p>
+        <div className="v2-capture-actions">
+          <button className="v2-btn primary">Take photo</button>
+          <button className="v2-btn">Choose photo</button>
         </div>
       </section>
 
@@ -206,10 +219,6 @@ export default function V2Preview() {
           >
             <NavIcon d="M12 7v5l3 2M3 12a9 9 0 1 0 9-9 9 9 0 0 0-9 9z" />
             History
-          </button>
-
-          <button className="v2-capture" aria-label="Log a meal">
-            <FaceIcon />
           </button>
 
           <button
