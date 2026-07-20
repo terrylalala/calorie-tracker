@@ -6,8 +6,39 @@ import { consume, rateLimited } from "@/lib/rateLimit";
 import { Analysis } from "@/lib/types";
 
 export const runtime = "nodejs";
-// Photo analysis can take a few seconds; give the route room.
+// Photo analysis can take a few seconds; give the route room. 60 is the ceiling
+// on Vercel's Hobby plan — asking for more is a promise the platform won't keep.
 export const maxDuration = 60;
+
+/**
+ * Client-side deadline for the Gemini call, comfortably inside maxDuration so
+ * the route still gets to return a useful message instead of being killed.
+ *
+ * This exists because of a real failure: on 20 July the function was terminated
+ * by the platform at 60s ("Vercel Runtime Timeout Error") and the user saw a
+ * generic error after a full minute of waiting.
+ *
+ * Two mechanisms, and they are NOT interchangeable:
+ * - `abortSignal` is client-side and is the authoritative bound. It fires on
+ *   time and throws. The SDK otherwise retries 5 times by default
+ *   (HttpRetryOptions.attempts), which inside a 60s budget silently stacks
+ *   attempts until the platform kills the function — the slowness and the
+ *   timeout are the same bug.
+ * - `httpOptions.timeout` is a server-side deadline sent to Google, and it has
+ *   a 10-SECOND FLOOR: below 10_000 it returns an immediate HTTP 400
+ *   INVALID_ARGUMENT rather than timing out quickly, which looks nothing like a
+ *   timeout and sends you hunting in the wrong place.
+ *
+ * Verified in Price Scanner's /api/prices before being brought back here.
+ */
+const ANALYZE_TIMEOUT_MS = 45_000;
+
+/**
+ * Two attempts, not the SDK default of five. A vision call that has already run
+ * ~20s cannot afford four more inside a 45s deadline; the retries simply eat the
+ * budget that would have produced an answer.
+ */
+const ANALYZE_ATTEMPTS = 2;
 
 const ALLOWED_MEDIA_TYPES = [
   "image/jpeg",
@@ -122,6 +153,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const startedAt = Date.now();
   try {
     const ai = getGemini();
     const response = await ai.models.generateContent({
@@ -144,8 +176,21 @@ export async function POST(req: NextRequest) {
         thinkingConfig: { thinkingBudget: 0 },
         maxOutputTokens: 2048,
         temperature: 0.2,
+        abortSignal: AbortSignal.timeout(ANALYZE_TIMEOUT_MS),
+        httpOptions: {
+          timeout: ANALYZE_TIMEOUT_MS,
+          retryOptions: { attempts: ANALYZE_ATTEMPTS },
+        },
       },
     });
+
+    // Log slow successes. Hobby-plan log retention is short, so this is only
+    // useful in the moment — but "it worked, in 38s" and "it worked, in 4s" are
+    // very different health signals and the difference is otherwise invisible.
+    const elapsed = Date.now() - startedAt;
+    if (elapsed > 15_000) {
+      console.warn(`[/api/analyze] slow Gemini call: ${elapsed}ms`);
+    }
 
     // Safety / blocked-response guards.
     if (response.promptFeedback?.blockReason) {
@@ -166,7 +211,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ analysis });
   } catch (err) {
-    return handleError(err);
+    return handleError(err, Date.now() - startedAt);
   }
 }
 
@@ -217,9 +262,26 @@ function parseAnalysis(text: string): Analysis | null {
   };
 }
 
-function handleError(err: unknown) {
+function handleError(err: unknown, elapsedMs = 0) {
   if (err instanceof MissingApiKeyError) {
     return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+
+  // The deadline fired. AbortSignal.timeout() raises a DOMException named
+  // "TimeoutError"; an externally aborted request raises "AbortError". Match on
+  // the name rather than the type, because the SDK may surface either and
+  // instanceof across realms is unreliable.
+  const name = (err as { name?: unknown })?.name;
+  if (name === "TimeoutError" || name === "AbortError") {
+    console.warn(`[/api/analyze] timed out after ${elapsedMs}ms`);
+    return NextResponse.json(
+      {
+        error:
+          "The AI service is taking longer than usual. Please try again — a second attempt often works.",
+        code: "analyze-timeout",
+      },
+      { status: 504 },
+    );
   }
   const status = typeof (err as { status?: unknown })?.status === "number"
     ? (err as { status: number }).status
