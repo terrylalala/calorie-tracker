@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Type } from "@google/genai";
-import { GEMINI_MODEL, MissingApiKeyError, getGemini } from "@/lib/gemini";
+import {
+  GEMINI_MODEL,
+  MissingApiKeyError,
+  aiCallBounds,
+  getGemini,
+  isAbortError,
+} from "@/lib/gemini";
 import { ownerId, requireUser } from "@/lib/session";
 import { consume, rateLimited } from "@/lib/rateLimit";
 import { Analysis } from "@/lib/types";
@@ -8,37 +14,8 @@ import { Analysis } from "@/lib/types";
 export const runtime = "nodejs";
 // Photo analysis can take a few seconds; give the route room. 60 is the ceiling
 // on Vercel's Hobby plan — asking for more is a promise the platform won't keep.
+// The call itself is bounded by aiCallBounds(); see lib/gemini.ts for why.
 export const maxDuration = 60;
-
-/**
- * Client-side deadline for the Gemini call, comfortably inside maxDuration so
- * the route still gets to return a useful message instead of being killed.
- *
- * This exists because of a real failure: on 20 July the function was terminated
- * by the platform at 60s ("Vercel Runtime Timeout Error") and the user saw a
- * generic error after a full minute of waiting.
- *
- * Two mechanisms, and they are NOT interchangeable:
- * - `abortSignal` is client-side and is the authoritative bound. It fires on
- *   time and throws. The SDK otherwise retries 5 times by default
- *   (HttpRetryOptions.attempts), which inside a 60s budget silently stacks
- *   attempts until the platform kills the function — the slowness and the
- *   timeout are the same bug.
- * - `httpOptions.timeout` is a server-side deadline sent to Google, and it has
- *   a 10-SECOND FLOOR: below 10_000 it returns an immediate HTTP 400
- *   INVALID_ARGUMENT rather than timing out quickly, which looks nothing like a
- *   timeout and sends you hunting in the wrong place.
- *
- * Verified in Price Scanner's /api/prices before being brought back here.
- */
-const ANALYZE_TIMEOUT_MS = 45_000;
-
-/**
- * Two attempts, not the SDK default of five. A vision call that has already run
- * ~20s cannot afford four more inside a 45s deadline; the retries simply eat the
- * budget that would have produced an answer.
- */
-const ANALYZE_ATTEMPTS = 2;
 
 const ALLOWED_MEDIA_TYPES = [
   "image/jpeg",
@@ -176,11 +153,7 @@ export async function POST(req: NextRequest) {
         thinkingConfig: { thinkingBudget: 0 },
         maxOutputTokens: 2048,
         temperature: 0.2,
-        abortSignal: AbortSignal.timeout(ANALYZE_TIMEOUT_MS),
-        httpOptions: {
-          timeout: ANALYZE_TIMEOUT_MS,
-          retryOptions: { attempts: ANALYZE_ATTEMPTS },
-        },
+        ...aiCallBounds(),
       },
     });
 
@@ -267,12 +240,7 @@ function handleError(err: unknown, elapsedMs = 0) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 
-  // The deadline fired. AbortSignal.timeout() raises a DOMException named
-  // "TimeoutError"; an externally aborted request raises "AbortError". Match on
-  // the name rather than the type, because the SDK may surface either and
-  // instanceof across realms is unreliable.
-  const name = (err as { name?: unknown })?.name;
-  if (name === "TimeoutError" || name === "AbortError") {
+  if (isAbortError(err)) {
     console.warn(`[/api/analyze] timed out after ${elapsedMs}ms`);
     return NextResponse.json(
       {

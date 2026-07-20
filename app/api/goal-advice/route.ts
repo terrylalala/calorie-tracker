@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GEMINI_MODEL, MissingApiKeyError, getGemini } from "@/lib/gemini";
+import {
+  GEMINI_MODEL,
+  MissingApiKeyError,
+  aiCallBounds,
+  getGemini,
+  isAbortError,
+} from "@/lib/gemini";
 import { ownerId, requireUser } from "@/lib/session";
 import { consume, rateLimited } from "@/lib/rateLimit";
 
@@ -45,6 +51,7 @@ export async function POST(req: NextRequest) {
         thinkingConfig: { thinkingBudget: 0 },
         maxOutputTokens: 900,
         temperature: 0.7,
+        ...aiCallBounds(),
       },
     });
 
@@ -71,6 +78,17 @@ export async function POST(req: NextRequest) {
 function handleError(err: unknown) {
   if (err instanceof MissingApiKeyError) {
     return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+  if (isAbortError(err)) {
+    console.warn("[/api/goal-advice] hit its deadline");
+    return NextResponse.json(
+      {
+        error:
+          "The AI service is taking longer than usual. Please try again — a second attempt often works.",
+        code: "goal-advice-timeout",
+      },
+      { status: 504 },
+    );
   }
   const status = typeof (err as { status?: unknown })?.status === "number"
     ? (err as { status: number }).status
