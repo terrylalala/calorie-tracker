@@ -98,6 +98,25 @@ export function isAbortError(err: unknown): boolean {
   return name === "AbortError" || name === "TimeoutError";
 }
 
+/**
+ * True when Gemini itself is overloaded rather than anything being wrong here.
+ *
+ * Observed for five straight hours on 20-21 July 2026: every call returned
+ * HTTP 503 "This model is currently experiencing high demand". The app reported
+ * that as "The AI service returned an error", which reads like the app is
+ * broken and gives the user nothing to act on.
+ *
+ * 503 is the one error where "try again" is genuinely the right advice - it is
+ * transient, it is not the user's fault, and it costs nothing to retry because
+ * these fail in 2-7s rather than consuming the request budget.
+ *
+ * Distinct from 429, which the routes already handle separately: 429 is quota
+ * exhaustion and retrying immediately makes it worse. Do not merge the two.
+ */
+export function isOverloadedError(err: unknown): boolean {
+  return (err as { status?: unknown })?.status === 503;
+}
+
 export class MissingApiKeyError extends Error {
   constructor() {
     super(

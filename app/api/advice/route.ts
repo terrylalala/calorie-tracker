@@ -5,6 +5,7 @@ import {
   aiCallBounds,
   getGemini,
   isAbortError,
+  isOverloadedError,
 } from "@/lib/gemini";
 import { ownerId, requireUser } from "@/lib/session";
 import { consume, rateLimited } from "@/lib/rateLimit";
@@ -101,6 +102,20 @@ function handleError(err: unknown) {
   const status = typeof (err as { status?: unknown })?.status === "number"
     ? (err as { status: number }).status
     : undefined;
+  // Gemini is overloaded. Distinct from the generic 4xx/5xx branch below,
+  // because this one is transient and retrying really is the right advice.
+  if (isOverloadedError(err)) {
+    console.warn("[/api/advice] Gemini returned 503 (model overloaded)");
+    return NextResponse.json(
+      {
+        error:
+          "The AI service is very busy right now. Please try again in a moment \u2014 this is on their side, not yours.",
+        code: "ai-overloaded",
+      },
+      { status: 503 },
+    );
+  }
+
   if (status === 429) {
     return NextResponse.json(
       { error: "Rate limited by the AI service. Please wait a moment and retry." },
