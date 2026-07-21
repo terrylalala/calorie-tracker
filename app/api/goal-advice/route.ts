@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   GEMINI_MODEL,
+  MINIMAL_THINKING,
   MissingApiKeyError,
   aiCallBounds,
   generateWithFallback,
@@ -50,8 +51,9 @@ export async function POST(req: NextRequest) {
       contents: `Here is my profile and the targets the app calculated. Please explain them.\n\n${summary}`,
       config: {
         systemInstruction: SYSTEM_PROMPT,
-        thinkingConfig: { thinkingBudget: 0 },
-        maxOutputTokens: 900,
+        thinkingConfig: MINIMAL_THINKING,
+        // Doubled to leave room if generateOnce has to drop thinkingConfig.
+        maxOutputTokens: 1800,
         temperature: 0.7,
         ...aiCallBounds(),
       },
@@ -116,6 +118,10 @@ function handleError(err: unknown) {
     );
   }
   if (status && status >= 400 && status < 600) {
+    // Log the real cause. This branch used to swallow it, so a Gemini 400 that
+    // broke every AI feature at once left nothing in the logs but the status
+    // code, and the cause had to be reproduced by hand against the live API.
+    console.error(`[/api/goal-advice] Gemini returned ${status}`, err);
     return NextResponse.json(
       { error: "The AI service returned an error. Please try again." },
       { status },

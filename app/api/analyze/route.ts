@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Type } from "@google/genai";
 import {
   GEMINI_MODEL,
+  MINIMAL_THINKING,
   MissingApiKeyError,
   aiCallBounds,
   generateWithFallback,
@@ -150,10 +151,14 @@ export async function POST(req: NextRequest) {
         systemInstruction: SYSTEM_PROMPT,
         responseMimeType: "application/json",
         responseSchema: ANALYSIS_SCHEMA,
-        // Disable "thinking": this is a structured extraction task, and thinking
-        // tokens would otherwise eat the output budget and truncate the JSON.
-        thinkingConfig: { thinkingBudget: 0 },
-        maxOutputTokens: 2048,
+        // Thinking as good as off: this is a structured extraction task, and
+        // thinking tokens come out of maxOutputTokens, truncating the JSON.
+        thinkingConfig: MINIMAL_THINKING,
+        // Headroom for the self-heal in generateOnce, which drops thinkingConfig
+        // if the API rejects it. A measured worst case (a 9-item plate) spent
+        // 1916 thinking + 759 output tokens, so 2048 was not enough to survive
+        // that path and the retry would have truncated instead of answering.
+        maxOutputTokens: 4096,
         temperature: 0.2,
         ...aiCallBounds(),
       },
@@ -279,6 +284,10 @@ function handleError(err: unknown, elapsedMs = 0) {
     );
   }
   if (status && status >= 400 && status < 600) {
+    // Log the real cause. This branch used to swallow it, so a Gemini 400 that
+    // broke every AI feature at once left nothing in the logs but the status
+    // code, and the cause had to be reproduced by hand against the live API.
+    console.error(`[/api/analyze] Gemini returned ${status}`, err);
     return NextResponse.json(
       { error: "The AI service returned an error. Please try again." },
       { status },

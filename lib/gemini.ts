@@ -104,6 +104,73 @@ export function aiCallBounds(timeoutMs: number = AI_TIMEOUT_MS) {
 }
 
 /**
+ * The smallest amount of "thinking" the API will accept.
+ *
+ * All three routes want thinking effectively OFF: they either extract
+ * structured JSON or write a few hundred words of advice, and thinking tokens
+ * come out of the SAME maxOutputTokens budget as the answer. Measured on 22
+ * July with the response schema from /api/analyze: with thinking left at its
+ * default, Flash spent 1916 thinking tokens and hit MAX_TOKENS with only 117
+ * tokens of JSON written — truncated mid-object, unparseable. That is the exact
+ * failure this setting has always existed to prevent.
+ *
+ * It used to be `thinkingBudget: 0`. That now returns **HTTP 400
+ * INVALID_ARGUMENT on every call** — the `-latest` aliases have rolled onto a
+ * model generation that refuses to have thinking disabled outright, which took
+ * photo analysis, Coach advice and goal advice down together. 128 is accepted
+ * by both generations and still measured 0 thinking tokens actually spent, so
+ * it buys compatibility for nothing.
+ *
+ * Do not "simplify" this by deleting the thinkingConfig: that reintroduces the
+ * truncation bug, and it is invisible until someone photographs a meal with
+ * enough items to overflow.
+ */
+export const MINIMAL_THINKING = { thinkingBudget: 128 } as const;
+
+/**
+ * Below this, a retry cannot realistically finish inside the routes'
+ * maxDuration = 60, so it is better to surface the original error than to be
+ * killed by the platform mid-attempt.
+ */
+const MIN_RETRY_BUDGET_MS = 8_000;
+
+/**
+ * One model, with a self-heal for the failure above.
+ *
+ * If the API rejects our thinking setting, the call is retried once with
+ * thinkingConfig removed entirely. That answer may truncate on a large meal —
+ * but a possibly-truncated answer beats a hard 400, and it means the next time
+ * Google changes what this field accepts, the app degrades instead of going
+ * dark for every user until someone notices and ships a fix.
+ */
+async function generateOnce(
+  ai: GoogleGenAI,
+  base: Parameters<GoogleGenAI["models"]["generateContent"]>[0],
+  model: string,
+  config: Record<string, unknown>,
+  remainingMs: () => number,
+) {
+  try {
+    return await ai.models.generateContent({ ...base, model, config });
+  } catch (err) {
+    if (!isInvalidArgumentError(err) || !("thinkingConfig" in config)) throw err;
+
+    const left = remainingMs();
+    if (left < MIN_RETRY_BUDGET_MS) throw err;
+
+    console.warn(
+      `[gemini] ${model} rejected thinkingConfig (400); retrying without it, ${left}ms left`,
+    );
+    const { thinkingConfig: _dropped, ...rest } = config;
+    return await ai.models.generateContent({
+      ...base,
+      model,
+      config: { ...rest, ...aiCallBounds(left) },
+    });
+  }
+}
+
+/**
  * Runs a generateContent call, retrying once on a different model if the
  * primary one is overloaded.
  *
@@ -129,10 +196,12 @@ export async function generateWithFallback(
 ): Promise<{ response: Awaited<ReturnType<GoogleGenAI["models"]["generateContent"]>>; model: string; usedFallback: boolean }> {
   const primary = request.model ?? GEMINI_MODEL;
   const base = { ...request } as Parameters<GoogleGenAI["models"]["generateContent"]>[0];
+  const config = request.config ?? {};
   const startedAt = Date.now();
+  const remainingMs = () => Math.max(timeoutMs - (Date.now() - startedAt), 0);
 
   try {
-    const response = await ai.models.generateContent({ ...base, model: primary });
+    const response = await generateOnce(ai, base, primary, config, remainingMs);
     return { response, model: primary, usedFallback: false };
   } catch (err) {
     if (!isOverloadedError(err) || GEMINI_FALLBACK_MODEL === primary) throw err;
@@ -143,8 +212,8 @@ export async function generateWithFallback(
     // function rather than letting it answer — the exact failure the bounds in
     // this file were written to prevent.
     const spent = Date.now() - startedAt;
-    const remaining = Math.max(timeoutMs - spent, 0);
-    if (remaining < 8_000) {
+    const remaining = remainingMs();
+    if (remaining < MIN_RETRY_BUDGET_MS) {
       console.warn(
         `[gemini] ${primary} returned 503 after ${spent}ms; too little budget left to retry`,
       );
@@ -154,11 +223,13 @@ export async function generateWithFallback(
     console.warn(
       `[gemini] ${primary} returned 503 after ${spent}ms; retrying on ${GEMINI_FALLBACK_MODEL} with ${remaining}ms left`,
     );
-    const response = await ai.models.generateContent({
-      ...base,
-      model: GEMINI_FALLBACK_MODEL,
-      config: { ...(request.config ?? {}), ...aiCallBounds(remaining) },
-    });
+    const response = await generateOnce(
+      ai,
+      base,
+      GEMINI_FALLBACK_MODEL,
+      { ...config, ...aiCallBounds(remaining) },
+      remainingMs,
+    );
     return { response, model: GEMINI_FALLBACK_MODEL, usedFallback: true };
   }
 }
@@ -195,6 +266,25 @@ export function isAbortError(err: unknown): boolean {
  */
 export function isOverloadedError(err: unknown): boolean {
   return (err as { status?: unknown })?.status === 503;
+}
+
+/**
+ * True when Google rejected the shape of the request itself.
+ *
+ * Worth its own predicate because a 400 is normally OUR bug and should be loud,
+ * but there is one flavour that isn't: a config field the API used to accept and
+ * no longer does. `thinkingBudget: 0` became a 400 overnight on 22 July and took
+ * every AI feature down at once, with the routes reporting only "The AI service
+ * returned an error" — which reads like the app is broken and gives nobody
+ * anything to act on. See MINIMAL_THINKING.
+ *
+ * Note there is nothing in the payload distinguishing "bad thinking config" from
+ * any other invalid argument; the message is the bare string "Request contains
+ * an invalid argument." So the retry is guarded on our side by only firing when
+ * we actually sent a thinkingConfig.
+ */
+export function isInvalidArgumentError(err: unknown): boolean {
+  return (err as { status?: unknown })?.status === 400;
 }
 
 export class MissingApiKeyError extends Error {
