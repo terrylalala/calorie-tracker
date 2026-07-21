@@ -1034,3 +1034,16 @@
 .v2[data-tab="coach"] .advice-body h3 {
   color: color-mix(in srgb, var(--v2-tab-hue) 70%, #000);
 }
+
+/* Sync notice: informational, not an error, so it reads as good news rather
+   than a warning. Tap to dismiss. */
+.v2-notice {
+  background: color-mix(in srgb, var(--v2-cyan) 18%, #fff);
+  color: color-mix(in srgb, var(--v2-cyan-deep) 85%, #000);
+  border-radius: var(--v2-r-sm);
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
