@@ -24,8 +24,14 @@ export interface CapturedImage {
  */
 const THUMB_DIM = 320;
 
-/** Downscale an image file to a JPEG whose longest side is <= maxDim. */
-async function downscale(file: File, maxDim = 1024, quality = 0.82): Promise<CapturedImage> {
+/**
+ * Downscale an image file to a JPEG whose longest side is <= maxDim.
+ *
+ * Exported so an alternate capture UI (see app/v2) can reuse the exact same
+ * resizing and thumbnail rules. Copying it would mean the thumbnail fix has to
+ * be remembered twice, which is the failure mode this project keeps hitting.
+ */
+export async function downscale(file: File, maxDim = 1024, quality = 0.82): Promise<CapturedImage> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const fr = new FileReader();
     fr.onload = () => resolve(fr.result as string);

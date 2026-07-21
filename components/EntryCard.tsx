@@ -2,7 +2,8 @@
 
 import { FoodEntry } from "@/lib/types";
 
-function foodEmoji(name: string): string {
+/** Exported so the alternate design in app/v2 shares one keyword map. */
+export function foodEmoji(name: string): string {
   const n = name.toLowerCase();
   const map: [string, string][] = [
     ["salad", "🥗"],

@@ -1,6 +1,6 @@
 /*
  * Design candidate 2 — for comparison against the shipped cream/serif look
- * (tagged design/cream-serif-v1). Not wired to any data.
+ * (tagged design/cream-serif-v1). Reads and writes the real log; see page.tsx.
  *
  * EVERY rule is scoped under .v2 on purpose. app/globals.css is 998 lines of
  * unscoped class selectors (.card, .brand, .row…), and this file would collide
@@ -287,14 +287,27 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A button, not a div: each row opens the meal detail sheet, so it has to be
+   reachable and activatable from the keyboard. The reset undoes the browser's
+   button styling that would otherwise fight the card look. */
 .v2-meal {
   display: flex;
   align-items: center;
   gap: 13px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  border: 0;
+  cursor: pointer;
   background: var(--v2-card);
   border-radius: var(--v2-r-sm);
   padding: 11px 13px;
   box-shadow: 0 1px 5px rgba(43, 47, 56, 0.04);
+}
+
+.v2-meal:active {
+  transform: scale(0.99);
 }
 
 .v2-meal + .v2-meal {
@@ -309,6 +322,9 @@
   display: grid;
   place-items: center;
   font-size: 1.35rem;
+  /* Real photos are not square; fill the circle rather than distorting them. */
+  object-fit: cover;
+  background: var(--v2-bg);
 }
 
 .v2-meal-body {
@@ -415,4 +431,55 @@
 
 .v2-banner b {
   color: var(--v2-cyan);
+}
+
+/* ---------- real-data states ---------- */
+
+/* Everything waits for mount, because the greeting reads the clock and the log
+   comes from the database. This holds the space while that happens. */
+.v2-loading {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}
+
+.v2-error {
+  background: #fdecef;
+  color: #93233c;
+  border-radius: var(--v2-r-sm);
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+
+.v2-empty {
+  color: var(--v2-ink-faint);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 22px 10px;
+  margin: 0;
+}
+
+/* The three tabs this design does not cover. An honest dead end beats a
+   half-built screen that implies the redesign is further along than it is. */
+.v2-todo {
+  background: var(--v2-card);
+  border-radius: var(--v2-r);
+  padding: 30px 22px;
+  text-align: center;
+  margin-top: 26px;
+}
+
+.v2-todo-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+.v2-todo-sub {
+  font-size: 0.84rem;
+  color: var(--v2-ink-faint);
+  line-height: 1.5;
+  margin: 0 0 18px;
 }
