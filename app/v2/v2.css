@@ -998,3 +998,28 @@
 .v2[data-tab="settings"] .goalseg button.active .gt {
   color: color-mix(in srgb, var(--v2-tab-hue) 84%, #000);
 }
+
+/* Primary buttons follow the tab hue too — "Save changes" was still teal on
+   the amber Settings screen.
+ *
+ * The fill is a DARKENED mix of the hue, not the hue itself: amber and pink at
+ * full strength give white text about 2:1, well under the 4.5:1 a 15px label
+ * needs. Darkening keeps the tab's identity while staying legible.
+ *
+ * Coach's "Get advice" is unaffected — its rule sits on a filled card and is
+ * more specific, so it stays white-on-pink.
+ */
+.v2:not([data-tab="today"]) .btn.primary {
+  background: var(--v2-tab-hue);
+  border-color: var(--v2-tab-hue);
+  color: var(--v2-tab-ink, #fff);
+}
+
+/* Amber is too light to carry white text: at full strength it gave 2.2:1, and
+   darkening it enough to fix that turned the button brown — trading the bright
+   colour away to solve a text problem. Dark ink on the vivid amber keeps both,
+   the same resolution the solid chips needed. Violet and pink are dark enough
+   for white, so they keep it. */
+.v2[data-tab="settings"] {
+  --v2-tab-ink: #422100;
+}
