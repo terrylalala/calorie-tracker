@@ -91,7 +91,11 @@ function TrackerApp() {
     const next = [entry, ...entries];
     const photo =
       entry.source === "photo" && captured
-        ? { base64: captured.base64, mediaType: captured.mediaType }
+        ? {
+            base64: captured.base64,
+            mediaType: captured.mediaType,
+            thumbBase64: captured.thumbBase64,
+          }
         : undefined;
     setEntries(next);
     setAnalysis(null);

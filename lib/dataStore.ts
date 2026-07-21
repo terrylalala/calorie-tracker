@@ -146,6 +146,8 @@ export async function loadAll(mode: StorageMode): Promise<LoadedData> {
 export interface PhotoUpload {
   base64: string;
   mediaType: string;
+  /** Small copy for list rows. Optional: absent means "serve the full image". */
+  thumbBase64?: string;
 }
 
 /** Persist a new entry (optionally with its photo). Mirrors to localStorage. */
@@ -163,7 +165,11 @@ export async function addEntry(
     body: JSON.stringify({
       entry,
       ...(photo
-        ? { photoBase64: photo.base64, photoMediaType: photo.mediaType }
+        ? {
+            photoBase64: photo.base64,
+            photoMediaType: photo.mediaType,
+            ...(photo.thumbBase64 ? { thumbBase64: photo.thumbBase64 } : {}),
+          }
         : {}),
     }),
   });

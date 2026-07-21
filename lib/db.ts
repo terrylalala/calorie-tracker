@@ -98,6 +98,11 @@ async function initSchema(): Promise<void> {
   await sql`alter table entries add column if not exists photo_url text`;
   await sql`alter table entries add column if not exists items jsonb`;
 
+  // A small copy of the photo for list rows. Separate blob object, so it must
+  // also be removed on delete or it is orphaned but still billed. Null on rows
+  // saved before this existed; /api/photo falls back to the full image.
+  await sql`alter table entries add column if not exists thumb_url text`;
+
   // Per-user settings. A new table rather than migrating the old single-row
   // `settings` table, which is left untouched as legacy.
   await sql`

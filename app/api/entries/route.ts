@@ -51,6 +51,7 @@ async function uploadPhoto(
   userId: string,
   base64: string,
   mediaType: string,
+  variant: "full" | "thumb" = "full",
 ): Promise<string | null> {
   if (!hasBlob()) {
     console.warn("[/api/entries] photo skipped: Blob storage is not configured");
@@ -66,7 +67,8 @@ async function uploadPhoto(
     // Private store: the object cannot be read without the store token, so even
     // a leaked URL is useless. Reads go through /api/photo/[id], which checks
     // ownership first.
-    const blob = await put(`meals/${userId}/${entryId}.${ext}`, bytes, {
+    const name = variant === "thumb" ? `${entryId}-t` : entryId;
+    const blob = await put(`meals/${userId}/${name}.${ext}`, bytes, {
       access: "private",
       contentType: mediaType,
       addRandomSuffix: true,
@@ -155,6 +157,7 @@ export async function POST(req: NextRequest) {
     entries?: unknown;
     photoBase64?: string;
     photoMediaType?: string;
+    thumbBase64?: string;
   };
   try {
     body = await req.json();
@@ -170,6 +173,7 @@ export async function POST(req: NextRequest) {
 
   // A photo only applies to a single-entry save (not the bulk migration path).
   let photoUrl: string | null = null;
+  let thumbUrl: string | null = null;
   if (parsed.length === 1 && body.photoBase64 && body.photoMediaType) {
     photoUrl = await uploadPhoto(
       parsed[0].id,
@@ -177,6 +181,17 @@ export async function POST(req: NextRequest) {
       body.photoBase64,
       body.photoMediaType,
     );
+    // Only worth storing if the full photo landed — a thumbnail with nothing
+    // behind it would render in the list and then 404 when opened.
+    if (photoUrl && body.thumbBase64) {
+      thumbUrl = await uploadPhoto(
+        parsed[0].id,
+        uid,
+        body.thumbBase64,
+        "image/jpeg",
+        "thumb",
+      );
+    }
   }
 
   try {
@@ -187,17 +202,18 @@ export async function POST(req: NextRequest) {
       // `where entries.user_id = uid` on the update branch stops one account
       // overwriting another's row by guessing its id.
       await sql`
-        insert into entries (id, user_id, ts, day, name, portion, calories, protein_g, carbs_g, fat_g, source, note, items, photo_url)
+        insert into entries (id, user_id, ts, day, name, portion, calories, protein_g, carbs_g, fat_g, source, note, items, photo_url, thumb_url)
         values (${e.id}, ${uid}, ${e.timestamp}, ${e.date}, ${e.name}, ${e.portion},
                 ${e.calories}, ${e.protein_g}, ${e.carbs_g}, ${e.fat_g}, ${e.source}, ${e.note ?? null},
-                ${items}::jsonb, ${photoUrl})
+                ${items}::jsonb, ${photoUrl}, ${thumbUrl})
         on conflict (id) do update set
           ts = excluded.ts, day = excluded.day, name = excluded.name,
           portion = excluded.portion, calories = excluded.calories,
           protein_g = excluded.protein_g, carbs_g = excluded.carbs_g,
           fat_g = excluded.fat_g, source = excluded.source, note = excluded.note,
           items = coalesce(excluded.items, entries.items),
-          photo_url = coalesce(excluded.photo_url, entries.photo_url)
+          photo_url = coalesce(excluded.photo_url, entries.photo_url),
+          thumb_url = coalesce(excluded.thumb_url, entries.thumb_url)
         where entries.user_id = ${uid}
       `;
     }
@@ -219,19 +235,23 @@ export async function DELETE(req: NextRequest) {
   try {
     await ensureSchema();
     const sql = getSql();
-    // Scoped delete: you can only remove your own rows. Returning photo_url
-    // lets us clean up the stored image instead of leaving it orphaned.
+    // Scoped delete: you can only remove your own rows. Returning the image
+    // URLs lets us clean them up instead of leaving them orphaned.
     const removed = (await sql`
       delete from entries where id = ${id} and user_id = ${uid}
-      returning photo_url
-    `) as unknown as { photo_url: string | null }[];
+      returning photo_url, thumb_url
+    `) as unknown as { photo_url: string | null; thumb_url: string | null }[];
 
-    const photo = removed[0]?.photo_url;
-    if (photo && hasBlob()) {
+    // BOTH objects, not just the photo. The thumbnail is a separate blob, so
+    // deleting only the full image leaves it unreachable but still billed.
+    const blobs = [removed[0]?.photo_url, removed[0]?.thumb_url].filter(
+      (u): u is string => !!u,
+    );
+    if (blobs.length && hasBlob()) {
       try {
-        await del(photo);
+        await del(blobs);
       } catch (err) {
-        // Non-fatal: the row is gone, the blob is just left behind.
+        // Non-fatal: the row is gone, the blobs are just left behind.
         console.error("[/api/entries] blob delete failed", err);
       }
     }

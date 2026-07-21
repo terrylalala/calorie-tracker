@@ -75,7 +75,7 @@ export default function EntryCard({
       {entry.hasPhoto ? (
         <img
           className="entry-photo"
-          src={`/api/photo/${encodeURIComponent(entry.id)}`}
+          src={`/api/photo/${encodeURIComponent(entry.id)}?size=thumb`}
           alt=""
           loading="lazy"
         />

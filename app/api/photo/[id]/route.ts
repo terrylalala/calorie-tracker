@@ -33,10 +33,15 @@ export async function GET(
     // Ownership is enforced here: a row belonging to someone else simply
     // doesn't match, so it is indistinguishable from a missing photo.
     const rows = (await sql`
-      select photo_url from entries where id = ${id} and user_id = ${uid}
-    `) as unknown as { photo_url: string | null }[];
+      select photo_url, thumb_url from entries where id = ${id} and user_id = ${uid}
+    `) as unknown as { photo_url: string | null; thumb_url: string | null }[];
 
-    const url = rows[0]?.photo_url;
+    // ?size=thumb asks for the small copy. It is a request, not a guarantee:
+    // meals saved before thumbnails existed, and photos whose thumbnail upload
+    // failed, fall back to the full image rather than showing nothing.
+    const wantThumb = req.nextUrl.searchParams.get("size") === "thumb";
+    const url =
+      (wantThumb ? rows[0]?.thumb_url : null) ?? rows[0]?.photo_url;
     if (!url) {
       return NextResponse.json({ error: "Not found." }, { status: 404 });
     }
