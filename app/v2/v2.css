@@ -491,8 +491,10 @@
   cursor: pointer;
 }
 
+/* Follows the tab's own hue, so the active item is not the one teal thing left
+   on a violet or pink screen. Falls back to the cyan for Today. */
 .v2-tab.active {
-  color: var(--v2-cyan-deep);
+  color: var(--v2-tab-hue, var(--v2-cyan-deep));
   font-weight: 600;
 }
 
@@ -927,3 +929,72 @@
 .v2[data-tab="settings"] .target-row:nth-of-type(2) input { background: color-mix(in srgb, var(--v2-cyan) 16%, #fff); }
 .v2[data-tab="settings"] .target-row:nth-of-type(3) input { background: color-mix(in srgb, var(--v2-yellow) 20%, #fff); }
 .v2[data-tab="settings"] .target-row:nth-of-type(4) input { background: color-mix(in srgb, var(--v2-pink) 16%, #fff); }
+
+/* ---------- a hue per tab ----------
+ *
+ * Reported: History and Coach read monotone. They did — every block on every
+ * tab was teal, so "add colour" had quietly become "add green", which is the
+ * same failure as the earlier single-accent pass in a new costume. The bright
+ * reference is not one hue: mint, coral, purple, amber and blue sit side by
+ * side, and that variety IS the brightness.
+ *
+ * So each tab takes its own identity colour, and its blocks follow it. Today
+ * keeps green because that is the logging screen and the capture button is
+ * already mint.
+ */
+.v2[data-tab="history"] {
+  --v2-hero-bg: linear-gradient(150deg, #8b7cf5, #6d5ce8 60%, #5b4bd6);
+  --v2-tab-hue: #6d5ce8;
+}
+
+.v2[data-tab="coach"] {
+  --v2-hero-bg: linear-gradient(150deg, #ff9ec4, #ff5d8f 62%, #f0468a);
+  --v2-tab-hue: #ff5d8f;
+}
+
+.v2[data-tab="settings"] {
+  --v2-hero-bg: linear-gradient(150deg, #ffc95c, #ffab2e 60%, #f79318);
+  --v2-tab-hue: #f79318;
+}
+
+/* The averages panel follows History's violet instead of adding more mint. */
+.v2[data-tab="history"] .card:has(.stat-strong) {
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--v2-tab-hue) 14%, #fff),
+    color-mix(in srgb, var(--v2-tab-hue) 24%, #fff)
+  );
+}
+
+.v2[data-tab="history"] .card:has(.stat-strong) .stat-strong {
+  color: color-mix(in srgb, var(--v2-tab-hue) 82%, #000);
+}
+
+/* Coach's action block follows its pink. */
+.v2[data-tab="coach"] .card:has(.btn.primary) {
+  background: linear-gradient(150deg, #ff9ec4, #ff5d8f 70%, #f0468a);
+}
+
+.v2[data-tab="coach"] .card:has(.btn.primary) .btn.primary {
+  color: #d81b60;
+}
+
+/* Section accents follow the tab too, so the eyebrow and active toggle stop
+   being teal on a violet or pink screen. */
+.v2:not([data-tab="today"]) .eyebrow {
+  color: var(--v2-tab-hue);
+}
+
+.v2[data-tab="history"] .range-toggle button.active,
+.v2[data-tab="settings"] .goalseg button.active {
+  background: color-mix(in srgb, var(--v2-tab-hue) 16%, #fff);
+  border-color: var(--v2-tab-hue);
+  color: color-mix(in srgb, var(--v2-tab-hue) 80%, #000);
+}
+
+/* The selected goal's label has its own colour rule in globals.css, so the
+   tab-hue override above did not reach it and it stayed teal on an amber
+   screen. */
+.v2[data-tab="settings"] .goalseg button.active .gt {
+  color: color-mix(in srgb, var(--v2-tab-hue) 84%, #000);
+}
