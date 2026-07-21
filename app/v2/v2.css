@@ -175,10 +175,18 @@
   gap: 4px;
 }
 
+/* Each dial can sit on a tile of its own colour, like the category circles in
+   the bright reference. Off (0%) in most palettes. --ring-c is set inline per
+   dial so one rule serves all four. */
 .v2-ring {
   display: grid;
   justify-items: center;
   gap: 7px;
+  padding: var(--v2-ringtile-pad, 0);
+  border-radius: var(--v2-ringtile-r, 0);
+  background: color-mix(
+    in srgb, var(--ring-c) var(--v2-ringtile-tint, 0%), transparent
+  );
 }
 
 .v2-ring-dial {
@@ -229,13 +237,19 @@
    it behind a smaller target with no label. */
 .v2-capture-card {
   margin-top: 12px;
-  background: var(--v2-card);
+  background: var(--v2-capture-bg, var(--v2-card));
+  color: var(--v2-capture-ink, inherit);
   border-radius: var(--v2-r);
   padding: 18px 18px 16px;
   box-shadow: 0 2px 10px rgba(43, 47, 56, 0.05);
   display: grid;
   justify-items: center;
   gap: 12px;
+}
+
+.v2-capture-card .v2-capture-title,
+.v2-capture-card .v2-capture-sub {
+  color: var(--v2-capture-ink, inherit);
 }
 
 .v2-face-btn {
@@ -345,10 +359,12 @@
   color: var(--v2-ink);
 }
 
-.v2-chip.breakfast { background: color-mix(in srgb, var(--v2-yellow) 45%, transparent); }
-.v2-chip.lunch { background: color-mix(in srgb, var(--v2-cyan) 40%, transparent); }
-.v2-chip.dinner { background: color-mix(in srgb, var(--v2-lavender) 40%, transparent); }
-.v2-chip.snack { background: color-mix(in srgb, var(--v2-pink) 35%, transparent); }
+/* Strength is palette-driven: a wash at 40%, a solid badge at 100%. */
+.v2-chip { color: var(--v2-chip-ink, var(--v2-ink)); }
+.v2-chip.breakfast { background: color-mix(in srgb, var(--v2-yellow) var(--v2-chip-mix, 45%), transparent); }
+.v2-chip.lunch { background: color-mix(in srgb, var(--v2-cyan) var(--v2-chip-mix, 40%), transparent); }
+.v2-chip.dinner { background: color-mix(in srgb, var(--v2-lavender) var(--v2-chip-mix, 40%), transparent); }
+.v2-chip.snack { background: color-mix(in srgb, var(--v2-pink) var(--v2-chip-mix, 35%), transparent); }
 
 .v2-sitting-kcal {
   margin-left: auto;
@@ -665,3 +681,92 @@
     var(--tile-h, 200) var(--v2-tile-s, 30%) var(--v2-tile-l, 95%)
   );
 }
+
+/* ---------- vivid ----------
+ *
+ * "Bright" pushed further, using the two devices from the reference that it
+ * left on the table: a COLOURED TILE behind every dial (its category circles)
+ * and a FILLED card for the primary action (its promo blocks). Chips go solid
+ * instead of a wash.
+ *
+ * Surface still white. That is the rule the reference actually follows, and
+ * abandoning it is what made "bold" muddy rather than loud.
+ */
+.v2[data-palette="vivid"] {
+  --v2-cyan: #00c9b7;
+  --v2-cyan-deep: #00a396;
+  --v2-pink: #ff3d71;
+  --v2-yellow: #ffab00;
+  --v2-lavender: #7c4dff;
+  --v2-mint: #00e096;
+
+  --v2-bg: #ffffff;
+  --v2-card: #ffffff;
+  --v2-line: #eaeef2;
+  --v2-track-base: #eef1f4;
+  --v2-track-tint: 30%;
+
+  --v2-hero-bg: linear-gradient(145deg, #00e096 0%, #00c9b7 45%, #7c4dff 130%);
+  --v2-hero-ink: #ffffff;
+  --v2-hero-r: 30px;
+  --v2-hero-pad: 50px;
+  --v2-hero-gap: -36px;
+
+  /* Each dial on a tile of its own hue. */
+  --v2-ringtile-tint: 14%;
+  --v2-ringtile-pad: 10px 2px 8px;
+  --v2-ringtile-r: 16px;
+
+  /* The primary action becomes a filled block, not a white card. */
+  --v2-capture-bg: linear-gradient(150deg, #7c4dff, #ff3d71 115%);
+  --v2-capture-ink: #ffffff;
+
+  /* Solid badges rather than a tint. */
+  --v2-chip-mix: 100%;
+  --v2-chip-ink: #ffffff;
+
+  --v2-tile-s: 92%;
+  --v2-tile-l: 80%;
+}
+
+.v2[data-palette="vivid"] .v2-avatar {
+  background: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55);
+}
+
+/* The face button sits on the filled capture card now, so it needs to read as
+   a white object on colour rather than a coloured object on white. */
+.v2[data-palette="vivid"] .v2-face-btn {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 26px rgba(40, 10, 80, 0.28);
+}
+
+.v2[data-palette="vivid"] .v2-btn {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.42);
+  color: #ffffff;
+}
+
+.v2[data-palette="vivid"] .v2-btn.primary {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #7c4dff;
+}
+
+.v2[data-palette="vivid"] .v2-rings,
+.v2[data-palette="vivid"] .v2-meal {
+  box-shadow: 0 6px 20px rgba(20, 30, 60, 0.1);
+}
+
+.v2[data-palette="vivid"] .v2-capture-card {
+  box-shadow: 0 12px 28px rgba(90, 40, 200, 0.28);
+}
+
+/* Solid chips need their ink chosen per hue, not one blanket white.
+   Measured at the 11.5px chip size, white gave: teal 2.09 and pink 3.41 —
+   both under the 4.5:1 minimum — while purple passed at 4.81. So the two
+   light hues take a dark ink of their own colour instead. Bright and legible
+   are not in tension here; picking one ink for all four was the mistake. */
+.v2[data-palette="vivid"] .v2-chip.breakfast { color: #4a3200; }
+.v2[data-palette="vivid"] .v2-chip.lunch { color: #00302c; }
+.v2[data-palette="vivid"] .v2-chip.snack { color: #440013; }

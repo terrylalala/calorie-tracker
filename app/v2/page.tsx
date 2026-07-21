@@ -68,6 +68,7 @@ const PALETTES = [
   { key: "warm", label: "Warm" },
   { key: "bold", label: "Bold" },
   { key: "bright", label: "Bright" },
+  { key: "vivid", label: "Vivid" },
 ] as const;
 
 /**
@@ -369,7 +370,13 @@ function V2Preview() {
             {dials.map((d) => {
               const pct = d.goal > 0 ? Math.min(1, d.have / d.goal) : 0;
               return (
-                <div className="v2-ring" key={d.key}>
+                <div
+                  className="v2-ring"
+                  key={d.key}
+                  // Exposed to CSS so a palette can tile each dial in its own
+                  // colour without duplicating the four colours in the stylesheet.
+                  style={{ "--ring-c": d.colour } as React.CSSProperties}
+                >
                   <div className="v2-ring-dial">
                     <svg width="62" height="62" viewBox="0 0 62 62">
                       {/* The unfilled track keeps some of the ring's own
