@@ -778,3 +778,90 @@
 .v2[data-palette="vivid"] .v2-chip.breakfast { color: #4a3200; }
 .v2[data-palette="vivid"] .v2-chip.lunch { color: #00302c; }
 .v2[data-palette="vivid"] .v2-chip.snack { color: #440013; }
+
+/* ---------- shared views, re-skinned ----------
+ *
+ * History, Coach and Settings are the SAME components the live app renders.
+ * They style themselves from globals.css, which was fully tokenised in
+ * 340706d exactly so a second design could exist — so re-pointing those tokens
+ * inside .v2 restyles all of them, plus every sheet, without touching a single
+ * component or duplicating ~80 class rules.
+ *
+ * Custom properties inherit through the DOM, so the sheets pick these up too:
+ * they are rendered inside the .v2 container even though they position fixed.
+ *
+ * --serif is deliberately remapped to the sans stack. It is the single biggest
+ * difference between the two designs: globals.css sets font-family: var(--serif)
+ * on every heading, so this one line converts the whole editorial voice.
+ */
+.v2 {
+  --bg: var(--v2-bg);
+  --surface: var(--v2-card);
+  --surface-2: color-mix(in srgb, var(--v2-line) 60%, #fff);
+  --border: var(--v2-line);
+  --text: var(--v2-ink);
+  --text-dim: var(--v2-ink-soft);
+
+  --accent: var(--v2-cyan-deep);
+  --accent-hover: color-mix(in srgb, var(--v2-cyan-deep) 82%, #000);
+  --accent-soft: color-mix(in srgb, var(--v2-cyan) 16%, #fff);
+
+  --cal: var(--v2-cyan-deep);
+  --protein: var(--v2-cyan);
+  --carbs: var(--v2-yellow);
+  --fat: var(--v2-pink);
+
+  --radius: 18px;
+  --serif: var(--v2-sans);
+}
+
+/* globals.css gives headings a serif's tighter tracking; the sans needs its own
+   weight to carry the same emphasis. */
+.v2 .page-title {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.v2 .eyebrow {
+  letter-spacing: 0.09em;
+  font-weight: 700;
+}
+
+/* Softer, larger shadow to match the v2 cards rather than the flat cream ones. */
+.v2 .card,
+.v2 .daycard,
+.v2 .result-card {
+  box-shadow: 0 2px 10px rgba(43, 47, 56, 0.05);
+  border-color: transparent;
+}
+
+.v2 .sheet {
+  border-top-left-radius: 26px;
+  border-top-right-radius: 26px;
+}
+
+/* A quieter third option under the two photo buttons: it is the fallback, not
+   a peer of them, but it must stay findable because it is the only path that
+   works when the model is unavailable. */
+.v2-manual {
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  padding: 2px 6px 0;
+  color: var(--v2-capture-ink, var(--v2-ink-soft));
+  opacity: 0.85;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The band's deep padding and negative gap exist so the white rings CARD can
+   climb back onto the colour. Only Today has that card. On the other tabs the
+   next thing is bare text, which landed on the green with grey-on-green
+   contrast — so those tabs get a shallow band and a normal gap. */
+.v2:not([data-tab="today"]) {
+  --v2-hero-pad: 16px;
+  --v2-hero-gap: 18px;
+}

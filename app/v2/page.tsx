@@ -11,10 +11,18 @@ import {
   addEntry as storeAddEntry,
   removeEntry as storeRemoveEntry,
 } from "@/lib/dataStore";
-import { dateKey, totalsForDate } from "@/lib/nutrition";
+import { buildLogsSummary, dateKey, totalsForDate } from "@/lib/nutrition";
+import { loadProfile } from "@/lib/storage";
+import { putSettings } from "@/lib/dataStore";
 import AuthGate from "@/components/AuthGate";
 import AnalyzeSheet from "@/components/AnalyzeSheet";
 import MealDetailSheet from "@/components/MealDetailSheet";
+import ManualEntryForm from "@/components/ManualEntryForm";
+// The same components the live app renders. They are re-skinned by the token
+// remapping in v2.css, not reimplemented — see the note there.
+import HistoryView from "@/components/HistoryView";
+import CoachView from "@/components/CoachView";
+import SettingsView from "@/components/SettingsView";
 import { CapturedImage, downscale } from "@/components/CameraCapture";
 import { foodEmoji } from "@/components/EntryCard";
 
@@ -210,6 +218,7 @@ function V2Preview() {
   const [captured, setCaptured] = useState<CapturedImage | null>(null);
   const [detail, setDetail] = useState<FoodEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showManual, setShowManual] = useState(false);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
@@ -307,6 +316,8 @@ function V2Preview() {
     setAnalysis(null);
     setPreviewUrl(undefined);
     setCaptured(null);
+    setShowManual(false);
+    setTab("today");
     try {
       await storeAddEntry(mode, entry, next, photo);
       if (photo) {
@@ -329,8 +340,21 @@ function V2Preview() {
     }
   }
 
+  async function updateGoals(g: Goals) {
+    setGoals(g);
+    try {
+      await putSettings(mode, { goals: g, profile: loadProfile() });
+    } catch {
+      setError("Saved on this device, but couldn't reach the database.");
+    }
+  }
+
   const today = dateKey();
   const totals = useMemo(() => totalsForDate(entries, today), [entries, today]);
+  const logsSummary = useMemo(
+    () => buildLogsSummary(entries, goals, 14),
+    [entries, goals],
+  );
   const todayEntries = useMemo(
     () => entries.filter((e) => e.date === today),
     [entries, today],
@@ -368,7 +392,7 @@ function V2Preview() {
   }
 
   return (
-    <div className="v2" data-palette={palette}>
+    <div className="v2" data-palette={palette} data-tab={tab}>
       {/* Greeting and rings share a band. It is transparent in most palettes;
           "bright" fills it with saturated colour so the white rings card sits
           ON the colour, which is how the reference gets its brightness without
@@ -463,6 +487,16 @@ function V2Preview() {
                 Choose photo
               </button>
             </div>
+            {/* The only path that never touches Gemini. Without it this screen
+                cannot log anything at all when the model is down — which it was
+                for five straight hours on 20 July. */}
+            <button
+              className="v2-manual"
+              onClick={() => setShowManual(true)}
+              disabled={analyzing}
+            >
+              Add manually instead
+            </button>
             {/* capture="environment" opens the camera directly on a phone; the
                 second input has no capture attribute so it opens the library. */}
             <input
@@ -568,17 +602,17 @@ function V2Preview() {
             {SHOW_PALETTE_SWITCHER && " The buttons above switch palettes (development only)."}
           </div>
         </>
+      ) : tab === "history" ? (
+        <HistoryView
+          entries={entries}
+          goals={goals}
+          onOpen={setDetail}
+          onDelete={deleteEntry}
+        />
+      ) : tab === "coach" ? (
+        <CoachView logsSummary={logsSummary} hasData={entries.length > 0} />
       ) : (
-        <div className="v2-todo">
-          <p className="v2-todo-title">Not built in this design yet</p>
-          <p className="v2-todo-sub">
-            Only Today has been redesigned. Use the live app at <b>/</b> for
-            History, Coach and Settings.
-          </p>
-          <button className="v2-btn primary" onClick={() => setTab("today")}>
-            Back to Today
-          </button>
-        </div>
+        <SettingsView goals={goals} onSave={updateGoals} mode={mode} />
       )}
 
       <nav className="v2-nav">
@@ -626,6 +660,10 @@ function V2Preview() {
             setCaptured(null);
           }}
         />
+      )}
+
+      {showManual && (
+        <ManualEntryForm onSave={addEntry} onClose={() => setShowManual(false)} />
       )}
 
       {detail && (
