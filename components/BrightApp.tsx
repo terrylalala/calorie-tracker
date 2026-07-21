@@ -319,6 +319,10 @@ function Tracker() {
     setPreviewUrl(undefined);
     setCaptured(null);
     setShowManual(false);
+    // The backup-model warning says "check the numbers before saving", so it
+    // has to go once the meal IS saved — otherwise it sits there contradicting
+    // itself over a log entry that is already written.
+    setNotice(null);
     setTab("today");
     try {
       await storeAddEntry(mode, entry, next, photo);
@@ -667,6 +671,9 @@ function Tracker() {
             setAnalysis(null);
             setPreviewUrl(undefined);
             setCaptured(null);
+            // Same reason as in addEntry: the warning is about the estimate on
+            // screen, so it goes when that estimate does.
+            setNotice(null);
           }}
         />
       )}
