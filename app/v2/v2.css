@@ -30,6 +30,13 @@
   --v2-ink-faint: #a3aab5;
   --v2-line: #edf0f3;
 
+  /* How much of its own colour an unfilled ring keeps. At 0% the track is
+     plain grey, which is what made the screen read as washed out early in the
+     day: a ring at 13% is 87% track, so the track IS the colour of the screen.
+     Palettes below raise this so the rings carry colour before they are full. */
+  --v2-track-tint: 0%;
+  --v2-track-base: #edf0f3;
+
   --v2-r: 22px;
   --v2-r-sm: 14px;
   --v2-nav-h: 76px;
@@ -52,6 +59,69 @@
 .v2 *::before,
 .v2 *::after {
   box-sizing: border-box;
+}
+
+/* ---------- palette candidates ----------
+ *
+ * Selected by data-palette on the root, so switching one attribute restyles the
+ * whole screen and the options can be compared on a phone against real data.
+ * The default (no attribute) is "soft" — the original pastel reference.
+ *
+ * The complaint these answer: with one meal logged the screen still read pale,
+ * because ring FILL was the only thing carrying colour and a ring at 13% is
+ * almost entirely track. Every option below therefore tints the track and
+ * deepens the accents, rather than only saturating the fill.
+ */
+
+/* Deeper accents, same airy structure. Background and cards stay light. */
+.v2[data-palette="deep"] {
+  --v2-cyan: #17b3ab;
+  --v2-cyan-deep: #0d8f89;
+  --v2-pink: #f4587a;
+  --v2-yellow: #f5b31b;
+  --v2-lavender: #8b5cf6;
+  --v2-mint: #34d399;
+
+  --v2-track-tint: 16%;
+  --v2-bg: #eef1f5;
+}
+
+/* Warm: off the cool grey entirely, toward the shipped cream app's temperature,
+   with accents warmed to match. Cards stay near-white so they still lift. */
+.v2[data-palette="warm"] {
+  --v2-cyan: #109c93;
+  --v2-cyan-deep: #0a7a73;
+  --v2-pink: #ec5f5f;
+  --v2-yellow: #e8a020;
+  --v2-lavender: #a06cd5;
+  --v2-mint: #4cc79a;
+
+  --v2-track-tint: 18%;
+  --v2-bg: #f6efe4;
+  --v2-card: #fffdf9;
+  --v2-ink: #2f2a24;
+  --v2-ink-soft: #6f6559;
+  --v2-ink-faint: #a89c8c;
+  --v2-line: #ece2d3;
+  --v2-track-base: #ece2d3;
+}
+
+/* Bold: saturated, higher contrast, tinted surface. Furthest from reference 1. */
+.v2[data-palette="bold"] {
+  --v2-cyan: #00a8a0;
+  --v2-cyan-deep: #007d77;
+  --v2-pink: #e63a63;
+  --v2-yellow: #eb9a06;
+  --v2-lavender: #7c3aed;
+  --v2-mint: #10b981;
+
+  --v2-track-tint: 24%;
+  --v2-bg: #e6edf2;
+  --v2-ink: #16202b;
+  --v2-ink-soft: #4a5a68;
+  --v2-ink-faint: #8697a5;
+  --v2-line: #d6e0e8;
+  --v2-track-base: #d6e0e8;
 }
 
 /* ---------- greeting ---------- */
@@ -482,4 +552,33 @@
   color: var(--v2-ink-faint);
   line-height: 1.5;
   margin: 0 0 18px;
+}
+
+/* ---------- palette switcher ---------- */
+
+/* Temporary: exists to choose a palette on a real phone against real data,
+   then comes out with the losing options. */
+.v2-palette {
+  display: flex;
+  gap: 7px;
+  margin: 18px 2px 0;
+}
+
+.v2-palette-btn {
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--v2-line);
+  background: var(--v2-card);
+  color: var(--v2-ink-soft);
+  cursor: pointer;
+}
+
+.v2-palette-btn.active {
+  background: var(--v2-cyan);
+  border-color: var(--v2-cyan);
+  color: #fff;
 }

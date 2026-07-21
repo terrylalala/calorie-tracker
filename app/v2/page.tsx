@@ -57,6 +57,20 @@ function sittingFor(iso: string): Sitting {
 
 const ORDER: Sitting[] = ["Breakfast", "Lunch", "Snack", "Dinner"];
 
+/**
+ * Palette candidates, selected by data-palette on the root. Temporary: this
+ * exists so the choice can be made on a real phone against real data, and the
+ * losing options come out afterwards.
+ */
+const PALETTES = [
+  { key: "soft", label: "Soft" },
+  { key: "deep", label: "Deep" },
+  { key: "warm", label: "Warm" },
+  { key: "bold", label: "Bold" },
+] as const;
+
+const PALETTE_KEY = "v2.palette";
+
 function hhmm(iso: string): string {
   return new Date(iso).toLocaleTimeString([], {
     hour: "2-digit",
@@ -136,6 +150,7 @@ function V2Preview() {
   const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS);
   const [mode, setMode] = useState<StorageMode>("local");
   const [name, setName] = useState<string | null>(null);
+  const [palette, setPalette] = useState<string>("soft");
 
   // photo flow, mirroring the live app's
   const [analyzing, setAnalyzing] = useState(false);
@@ -150,6 +165,13 @@ function V2Preview() {
 
   useEffect(() => {
     let cancelled = false;
+    // Remembered so the choice survives a reload while comparing on a phone.
+    try {
+      const saved = window.localStorage.getItem(PALETTE_KEY);
+      if (saved && PALETTES.some((p) => p.key === saved)) setPalette(saved);
+    } catch {
+      // Private browsing can throw here; the default palette is fine.
+    }
     (async () => {
       const detected = await detectMode();
       const data = await loadAll(detected);
@@ -291,7 +313,7 @@ function V2Preview() {
   }
 
   return (
-    <div className="v2">
+    <div className="v2" data-palette={palette}>
       <header className="v2-greet">
         <div>
           <p className="v2-greet-hi">{greetingFor(new Date())}</p>
@@ -313,7 +335,14 @@ function V2Preview() {
                 <div className="v2-ring" key={d.key}>
                   <div className="v2-ring-dial">
                     <svg width="62" height="62" viewBox="0 0 62 62">
-                      <circle cx="31" cy="31" r={R} fill="none" stroke="#edf0f3" strokeWidth="6" />
+                      {/* The unfilled track keeps some of the ring's own
+                          colour. A ring at 13% is 87% track, so a grey track
+                          means the screen reads grey until the day is nearly
+                          over — which is exactly what looked washed out. */}
+                      <circle
+                        cx="31" cy="31" r={R} fill="none" strokeWidth="6"
+                        stroke={`color-mix(in srgb, ${d.colour} var(--v2-track-tint), var(--v2-track-base))`}
+                      />
                       <circle
                         cx="31" cy="31" r={R} fill="none"
                         stroke={d.colour} strokeWidth="6" strokeLinecap="round"
@@ -438,10 +467,31 @@ function V2Preview() {
             ))
           )}
 
+          <div className="v2-palette" role="group" aria-label="Colour palette">
+            {PALETTES.map((p) => (
+              <button
+                key={p.key}
+                className={`v2-palette-btn ${palette === p.key ? "active" : ""}`}
+                aria-pressed={palette === p.key}
+                onClick={() => {
+                  setPalette(p.key);
+                  try {
+                    window.localStorage.setItem(PALETTE_KEY, p.key);
+                  } catch {
+                    // Not worth surfacing; the choice just won't persist.
+                  }
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
           <div className="v2-banner">
             <b>Design preview — this is your real log.</b> Meals logged here are
             saved for real and show up in the live app at <b>/</b>, which is
-            unchanged. Only the Today tab exists in this design.
+            unchanged. Only the Today tab exists in this design. The buttons
+            above switch colour palettes — pick one and tell me.
           </div>
         </>
       ) : (
