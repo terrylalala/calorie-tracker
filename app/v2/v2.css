@@ -865,3 +865,65 @@
   --v2-hero-pad: 16px;
   --v2-hero-gap: 18px;
 }
+
+/* ---------- colour on the other three tabs ----------
+ *
+ * Today read bright and History / Coach / Settings did not, because Today is
+ * the only screen that had BLOCKS of colour — the band, the ring cards, the
+ * meal tiles. The others were white cards on white with a teal accent, which
+ * is the same mistake as tinting a background: an accent colour alone does not
+ * make a screen bright.
+ *
+ * So each tab gets one or two real colour blocks, using the same principle.
+ */
+
+/* EntryCard's emoji fallback, used by the expanded History day. Same hue table
+   as Today's tiles (set inline by EntryCard), so a dish is the same colour in
+   both places. */
+.v2 .emoji {
+  background: hsl(
+    var(--tile-h, 200) var(--v2-tile-s, 30%) var(--v2-tile-l, 95%)
+  );
+  border-radius: 12px;
+}
+
+/* History: the per-day macros carry their own colours instead of grey, and the
+   averages panel becomes a tinted block rather than another white card.
+   :has() targets it by content, which is stable — nth-of-type would silently
+   retarget the moment a card is added or reordered. */
+.v2 .dmacros span:nth-of-type(1) b { color: var(--v2-cyan-deep); }
+.v2 .dmacros span:nth-of-type(2) b { color: color-mix(in srgb, var(--v2-yellow) 78%, #7a5600); }
+.v2 .dmacros span:nth-of-type(3) b { color: var(--v2-pink); }
+
+.v2[data-tab="history"] .card:has(.stat-strong) {
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--v2-cyan) 22%, #fff),
+    color-mix(in srgb, var(--v2-mint) 26%, #fff)
+  );
+}
+
+.v2[data-tab="history"] .card:has(.stat-strong) .stat-strong {
+  color: color-mix(in srgb, var(--v2-cyan-deep) 88%, #000);
+}
+
+/* Coach: one card holding one action on an otherwise empty screen — the same
+   job the capture card does on Today, so it gets the same treatment. */
+.v2[data-tab="coach"] .card:has(.btn.primary) {
+  background: linear-gradient(150deg, var(--v2-mint), var(--v2-cyan) 70%, var(--v2-cyan-deep));
+  color: #fff;
+}
+
+.v2[data-tab="coach"] .card:has(.btn.primary) .btn.primary {
+  background: #fff;
+  border-color: #fff;
+  color: var(--v2-cyan-deep);
+}
+
+/* Settings: each target row tinted with the macro it edits, echoing the ring
+   cards on Today. Order matches the `rows` array in SettingsView: calories,
+   protein, carbs, fat. */
+.v2[data-tab="settings"] .target-row:nth-of-type(1) input { background: color-mix(in srgb, var(--v2-cyan-deep) 12%, #fff); }
+.v2[data-tab="settings"] .target-row:nth-of-type(2) input { background: color-mix(in srgb, var(--v2-cyan) 16%, #fff); }
+.v2[data-tab="settings"] .target-row:nth-of-type(3) input { background: color-mix(in srgb, var(--v2-yellow) 20%, #fff); }
+.v2[data-tab="settings"] .target-row:nth-of-type(4) input { background: color-mix(in srgb, var(--v2-pink) 16%, #fff); }

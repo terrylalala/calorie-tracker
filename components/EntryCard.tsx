@@ -2,6 +2,31 @@
 
 import { FoodEntry } from "@/lib/types";
 
+/**
+ * Hues for the tile behind a meal, cycled by name. Lives here so Today's list
+ * and the expanded History day get the SAME colour for the same dish — they
+ * render different components, and keeping two hue tables would guarantee they
+ * drifted apart.
+ *
+ * Hue only: saturation and lightness come from the design, so this is inert in
+ * the shipped look and vivid under .v2.
+ */
+const TILE_HUES = [154, 262, 199, 42, 344, 172, 24, 288];
+
+/**
+ * FNV-1a, not the usual `h * 31 + c`. Measured: with `*31` three of five sample
+ * meals collided on one hue, because that hash barely mixes its low bits and
+ * the modulo reads only those.
+ */
+export function tileHue(name: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return TILE_HUES[h % TILE_HUES.length];
+}
+
 /** Exported so the alternate design in app/v2 shares one keyword map. */
 export function foodEmoji(name: string): string {
   const n = name.toLowerCase();
@@ -81,7 +106,14 @@ export default function EntryCard({
           loading="lazy"
         />
       ) : (
-        <div className="emoji">{foodEmoji(entry.name)}</div>
+        <div
+          className="emoji"
+          // Inert in the shipped design, which ignores it; /v2 turns it into a
+          // coloured tile. Set here so History's rows match Today's.
+          style={{ "--tile-h": tileHue(entry.name) } as React.CSSProperties}
+        >
+          {foodEmoji(entry.name)}
+        </div>
       )}
       <div className="info">
         <div className="name">{entry.name}</div>

@@ -24,7 +24,7 @@ import HistoryView from "@/components/HistoryView";
 import CoachView from "@/components/CoachView";
 import SettingsView from "@/components/SettingsView";
 import { CapturedImage, downscale } from "@/components/CameraCapture";
-import { foodEmoji } from "@/components/EntryCard";
+import { foodEmoji, tileHue } from "@/components/EntryCard";
 
 /**
  * Design candidate 2 — a comparison route, not yet a replacement.
@@ -79,35 +79,11 @@ const PALETTES = [
   { key: "vivid", label: "Vivid" },
 ] as const;
 
-/**
- * Hues for the tile behind each meal, cycled by name.
- *
- * From the bright reference: its colour comes from many DIFFERENT saturated
- * blocks sitting on a white surface — coloured circles behind each icon, vivid
- * product tiles — not from tinting the surface itself. A single grey tile
- * repeated down the list is what made this list read flat.
- *
- * Hue only. Saturation and lightness come from the palette, so the same tiles
- * stay subtle in "soft" and go vivid in "bright".
+/*
+ * Tile hues now live in EntryCard alongside foodEmoji, so Today's list and the
+ * expanded History day colour the same dish identically. They render different
+ * components; two hue tables would have drifted.
  */
-const TILE_HUES = [154, 262, 199, 42, 344, 172, 24, 288];
-
-/**
- * FNV-1a rather than the usual `h * 31 + c`.
- *
- * Measured, not assumed: with `*31` three of five sample meals landed on the
- * same hue, because that hash barely mixes its low bits and `% 8` reads only
- * those. FNV-1a's xor-then-multiply avalanches, so short similar strings
- * separate.
- */
-function tileHue(name: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < name.length; i++) {
-    h ^= name.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
-  }
-  return TILE_HUES[h % TILE_HUES.length];
-}
 
 const PALETTE_KEY = "v2.palette";
 
