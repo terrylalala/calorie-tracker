@@ -3,6 +3,7 @@ import {
   GEMINI_MODEL,
   MissingApiKeyError,
   aiCallBounds,
+  generateWithFallback,
   getGemini,
   isAbortError,
   isOverloadedError,
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const ai = getGemini();
-    const response = await ai.models.generateContent({
+    const { response } = await generateWithFallback(ai, {
       model: GEMINI_MODEL,
       contents: `Here is my tracking data. Please give me personalized advice.\n\n${logsSummary}`,
       config: {

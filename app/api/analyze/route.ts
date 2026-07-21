@@ -4,6 +4,7 @@ import {
   GEMINI_MODEL,
   MissingApiKeyError,
   aiCallBounds,
+  generateWithFallback,
   getGemini,
   isAbortError,
   isOverloadedError,
@@ -134,7 +135,7 @@ export async function POST(req: NextRequest) {
   const startedAt = Date.now();
   try {
     const ai = getGemini();
-    const response = await ai.models.generateContent({
+    const { response, model, usedFallback } = await generateWithFallback(ai, {
       model: GEMINI_MODEL,
       contents: [
         {
@@ -163,7 +164,7 @@ export async function POST(req: NextRequest) {
     // very different health signals and the difference is otherwise invisible.
     const elapsed = Date.now() - startedAt;
     if (elapsed > 15_000) {
-      console.warn(`[/api/analyze] slow Gemini call: ${elapsed}ms`);
+      console.warn(`[/api/analyze] slow Gemini call: ${elapsed}ms (${model})`);
     }
 
     // Safety / blocked-response guards.
@@ -183,7 +184,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ analysis });
+    // Tell the client when the smaller model answered, so the sheet can say the
+    // estimate came from a backup rather than presenting it as equivalent.
+    return NextResponse.json(usedFallback ? { analysis, fallbackModel: true } : { analysis });
   } catch (err) {
     return handleError(err, Date.now() - startedAt);
   }

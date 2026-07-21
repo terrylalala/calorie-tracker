@@ -11,6 +11,26 @@ import { GoogleGenAI, ApiError } from "@google/genai";
 // GEMINI_MODEL env var to pin a specific version (e.g. gemini-3.5-flash).
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
+/**
+ * Used when GEMINI_MODEL returns 503 (overloaded).
+ *
+ * Flash has now been overloaded twice in two days — five hours on 20-21 July
+ * and again that evening — during which the app could do nothing but apologise.
+ * Probed at 22:50 on 21 July while Flash was returning 503 on every call:
+ * flash-lite answered in 813ms and pro-latest in 1761ms, so the outage is
+ * per-model rather than account-wide, and is survivable.
+ *
+ * Lite rather than pro: it was the faster of the two, and pro's free-tier
+ * limits are tighter, so leaning on it during a long outage risks trading a
+ * 503 for a 429. Lite is a smaller model, so estimates may be slightly less
+ * accurate — the routes report which model answered so the UI can say so.
+ *
+ * Only alias names work on this key. Pinned names (gemini-2.5-flash,
+ * gemini-2.0-flash) all returned 404 in the same probe.
+ */
+export const GEMINI_FALLBACK_MODEL =
+  process.env.GEMINI_FALLBACK_MODEL || "gemini-flash-lite-latest";
+
 // Accept either GEMINI_API_KEY (preferred) or GOOGLE_API_KEY as a fallback.
 function apiKey(): string | undefined {
   return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -81,6 +101,66 @@ export function aiCallBounds(timeoutMs: number = AI_TIMEOUT_MS) {
       retryOptions: { attempts: AI_ATTEMPTS },
     },
   };
+}
+
+/**
+ * Runs a generateContent call, retrying once on a different model if the
+ * primary one is overloaded.
+ *
+ * Shared here rather than written into a route for the same reason
+ * aiCallBounds is: the last four bugs in this project were a fix that lived in
+ * one place and never reached its twin.
+ *
+ * ONLY 503 falls back. A timeout, a 429 or a 4xx means something else is wrong,
+ * and firing a second model at it would double the cost of the failure while
+ * making the logs harder to read.
+ *
+ * The fallback gets its own bounds, because the original abortSignal has
+ * usually already been consumed — and if the first attempt burned most of the
+ * budget, the retry needs a fresh one to have any chance of finishing.
+ *
+ * Returns which model actually answered, so a route can tell the client its
+ * numbers came from the smaller model.
+ */
+export async function generateWithFallback(
+  ai: GoogleGenAI,
+  request: { model?: string; contents: unknown; config?: Record<string, unknown> },
+  timeoutMs: number = AI_TIMEOUT_MS,
+): Promise<{ response: Awaited<ReturnType<GoogleGenAI["models"]["generateContent"]>>; model: string; usedFallback: boolean }> {
+  const primary = request.model ?? GEMINI_MODEL;
+  const base = { ...request } as Parameters<GoogleGenAI["models"]["generateContent"]>[0];
+  const startedAt = Date.now();
+
+  try {
+    const response = await ai.models.generateContent({ ...base, model: primary });
+    return { response, model: primary, usedFallback: false };
+  } catch (err) {
+    if (!isOverloadedError(err) || GEMINI_FALLBACK_MODEL === primary) throw err;
+
+    // The fallback gets what is LEFT of the budget, not a fresh copy of it.
+    // Giving it a full timeoutMs meant a 503 arriving late could put the two
+    // attempts past the routes' maxDuration = 60, and the platform kills the
+    // function rather than letting it answer — the exact failure the bounds in
+    // this file were written to prevent.
+    const spent = Date.now() - startedAt;
+    const remaining = Math.max(timeoutMs - spent, 0);
+    if (remaining < 8_000) {
+      console.warn(
+        `[gemini] ${primary} returned 503 after ${spent}ms; too little budget left to retry`,
+      );
+      throw err;
+    }
+
+    console.warn(
+      `[gemini] ${primary} returned 503 after ${spent}ms; retrying on ${GEMINI_FALLBACK_MODEL} with ${remaining}ms left`,
+    );
+    const response = await ai.models.generateContent({
+      ...base,
+      model: GEMINI_FALLBACK_MODEL,
+      config: { ...(request.config ?? {}), ...aiCallBounds(remaining) },
+    });
+    return { response, model: GEMINI_FALLBACK_MODEL, usedFallback: true };
+  }
 }
 
 /**

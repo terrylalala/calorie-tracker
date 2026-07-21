@@ -287,6 +287,14 @@ function Tracker() {
         setPreviewUrl(undefined);
       } else {
         setAnalysis(data.analysis as Analysis);
+        // Say so when the backup model answered. The estimate is still worth
+        // having, but presenting it as identical to the usual one would be
+        // quietly overstating it.
+        if (data.fallbackModel) {
+          setNotice(
+            "The usual AI model was busy, so a smaller backup one estimated this. Check the numbers before saving.",
+          );
+        }
       }
     } catch {
       setError("Network error. Please check your connection and try again.");
