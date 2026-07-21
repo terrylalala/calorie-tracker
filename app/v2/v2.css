@@ -657,6 +657,14 @@
      legible against it. */
   --v2-tile-s: 85%;
   --v2-tile-l: 86%;
+
+  /* Each dial on a card of its own colour — kept from "vivid", which was
+     otherwise too much. Softer here (11% vs 14%): "vivid" carried the extra
+     weight with a filled capture card and solid chips to match, and without
+     those the same tint reads heavy rather than lively. */
+  --v2-ringtile-tint: 11%;
+  --v2-ringtile-pad: 10px 2px 8px;
+  --v2-ringtile-r: 16px;
 }
 
 .v2[data-palette="bright"] .v2-avatar {
