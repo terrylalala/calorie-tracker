@@ -103,6 +103,25 @@ function tileHue(name: string): number {
 
 const PALETTE_KEY = "v2.palette";
 
+/**
+ * The design that ships. Everything else in PALETTES is a candidate kept for
+ * comparison while the choice is being made.
+ */
+const CHOSEN_PALETTE = "bright";
+
+/**
+ * The switcher is a decision tool, not a feature, so it renders only in dev.
+ *
+ * Next inlines NODE_ENV at build time, so in a production build this is the
+ * literal `false` and the switcher — along with its handlers — is dropped by
+ * dead-code elimination rather than merely hidden with CSS.
+ *
+ * Production must ALSO ignore the saved choice, not just hide the buttons.
+ * Hiding them alone would strand anyone whose localStorage still held a
+ * rejected palette, with no control left to change it.
+ */
+const SHOW_PALETTE_SWITCHER = process.env.NODE_ENV === "development";
+
 function hhmm(iso: string): string {
   return new Date(iso).toLocaleTimeString([], {
     hour: "2-digit",
@@ -182,7 +201,7 @@ function V2Preview() {
   const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS);
   const [mode, setMode] = useState<StorageMode>("local");
   const [name, setName] = useState<string | null>(null);
-  const [palette, setPalette] = useState<string>("soft");
+  const [palette, setPalette] = useState<string>(CHOSEN_PALETTE);
 
   // photo flow, mirroring the live app's
   const [analyzing, setAnalyzing] = useState(false);
@@ -197,12 +216,16 @@ function V2Preview() {
 
   useEffect(() => {
     let cancelled = false;
-    // Remembered so the choice survives a reload while comparing on a phone.
-    try {
-      const saved = window.localStorage.getItem(PALETTE_KEY);
-      if (saved && PALETTES.some((p) => p.key === saved)) setPalette(saved);
-    } catch {
-      // Private browsing can throw here; the default palette is fine.
+    // Remembered so the choice survives a reload while comparing — but only
+    // where the switcher exists. In production the shipped palette wins over
+    // any leftover saved value, since there would be no way to undo it.
+    if (SHOW_PALETTE_SWITCHER) {
+      try {
+        const saved = window.localStorage.getItem(PALETTE_KEY);
+        if (saved && PALETTES.some((p) => p.key === saved)) setPalette(saved);
+      } catch {
+        // Private browsing can throw here; the default palette is fine.
+      }
     }
     (async () => {
       const detected = await detectMode();
@@ -516,6 +539,7 @@ function V2Preview() {
             ))
           )}
 
+          {SHOW_PALETTE_SWITCHER && (
           <div className="v2-palette" role="group" aria-label="Colour palette">
             {PALETTES.map((p) => (
               <button
@@ -535,12 +559,13 @@ function V2Preview() {
               </button>
             ))}
           </div>
+          )}
 
           <div className="v2-banner">
             <b>Design preview — this is your real log.</b> Meals logged here are
             saved for real and show up in the live app at <b>/</b>, which is
-            unchanged. Only the Today tab exists in this design. The buttons
-            above switch colour palettes — pick one and tell me.
+            unchanged. Only the Today tab exists in this design.
+            {SHOW_PALETTE_SWITCHER && " The buttons above switch palettes (development only)."}
           </div>
         </>
       ) : (
