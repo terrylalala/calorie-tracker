@@ -67,7 +67,38 @@ const PALETTES = [
   { key: "deep", label: "Deep" },
   { key: "warm", label: "Warm" },
   { key: "bold", label: "Bold" },
+  { key: "bright", label: "Bright" },
 ] as const;
+
+/**
+ * Hues for the tile behind each meal, cycled by name.
+ *
+ * From the bright reference: its colour comes from many DIFFERENT saturated
+ * blocks sitting on a white surface — coloured circles behind each icon, vivid
+ * product tiles — not from tinting the surface itself. A single grey tile
+ * repeated down the list is what made this list read flat.
+ *
+ * Hue only. Saturation and lightness come from the palette, so the same tiles
+ * stay subtle in "soft" and go vivid in "bright".
+ */
+const TILE_HUES = [154, 262, 199, 42, 344, 172, 24, 288];
+
+/**
+ * FNV-1a rather than the usual `h * 31 + c`.
+ *
+ * Measured, not assumed: with `*31` three of five sample meals landed on the
+ * same hue, because that hash barely mixes its low bits and `% 8` reads only
+ * those. FNV-1a's xor-then-multiply avalanches, so short similar strings
+ * separate.
+ */
+function tileHue(name: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < name.length; i++) {
+    h ^= name.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return TILE_HUES[h % TILE_HUES.length];
+}
 
 const PALETTE_KEY = "v2.palette";
 
@@ -314,15 +345,21 @@ function V2Preview() {
 
   return (
     <div className="v2" data-palette={palette}>
-      <header className="v2-greet">
-        <div>
-          <p className="v2-greet-hi">{greetingFor(new Date())}</p>
-          <h1 className="v2-greet-name">{name ?? "there"}</h1>
-        </div>
-        {/* Only when there is a name. A "?" in the circle reads as an error
-            rather than as "signed out", which is all it would mean. */}
-        {name && <div className="v2-avatar">{name.slice(0, 1).toUpperCase()}</div>}
-      </header>
+      {/* Greeting and rings share a band. It is transparent in most palettes;
+          "bright" fills it with saturated colour so the white rings card sits
+          ON the colour, which is how the reference gets its brightness without
+          tinting the page. */}
+      <div className="v2-hero">
+        <header className="v2-greet">
+          <div>
+            <p className="v2-greet-hi">{greetingFor(new Date())}</p>
+            <h1 className="v2-greet-name">{name ?? "there"}</h1>
+          </div>
+          {/* Only when there is a name. A "?" in the circle reads as an error
+              rather than as "signed out", which is all it would mean. */}
+          {name && <div className="v2-avatar">{name.slice(0, 1).toUpperCase()}</div>}
+        </header>
+      </div>
 
       {error && <div className="v2-error">{error}</div>}
 
@@ -451,7 +488,12 @@ function V2Preview() {
                         loading="lazy"
                       />
                     ) : (
-                      <div className="v2-thumb">{foodEmoji(m.name)}</div>
+                      <div
+                        className="v2-thumb"
+                        style={{ "--tile-h": tileHue(m.name) } as React.CSSProperties}
+                      >
+                        {foodEmoji(m.name)}
+                      </div>
                     )}
                     <div className="v2-meal-body">
                       <p className="v2-meal-name">{m.name}</p>

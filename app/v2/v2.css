@@ -582,3 +582,86 @@
   border-color: var(--v2-cyan);
   color: #fff;
 }
+
+/* ---------- hero band ---------- */
+
+/* Transparent in most palettes; "bright" fills it. Full-bleed via negative
+   margins that undo the .v2 side padding, so the colour reaches the screen
+   edges the way a phone header does. */
+.v2-hero {
+  margin: 0 -18px;
+  padding: 0 18px;
+  background: var(--v2-hero-bg, transparent);
+  border-bottom-left-radius: var(--v2-hero-r, 0);
+  border-bottom-right-radius: var(--v2-hero-r, 0);
+  padding-bottom: var(--v2-hero-pad, 0);
+  margin-bottom: var(--v2-hero-gap, 0);
+  color: var(--v2-hero-ink, inherit);
+}
+
+.v2-hero .v2-greet-hi,
+.v2-hero .v2-greet-name {
+  color: var(--v2-hero-ink, inherit);
+}
+
+/* ---------- bright ----------
+ *
+ * From the reference: the SURFACE stays white and the colour arrives as
+ * discrete saturated blocks on top of it — a filled header band, vivid tiles
+ * behind each item, many hues at once. The earlier "bold" and "warm" options
+ * tinted the whole background instead, which mutes a screen rather than
+ * brightening it: a tinted surface can only ever lower contrast against the
+ * cards sitting on it.
+ */
+.v2[data-palette="bright"] {
+  --v2-cyan: #12c2b4;
+  --v2-cyan-deep: #06a99c;
+  --v2-pink: #ff5d8f;
+  --v2-yellow: #ffb92e;
+  --v2-lavender: #8b6cf0;
+  --v2-mint: #3ddba4;
+
+  --v2-bg: #ffffff;
+  --v2-card: #ffffff;
+  --v2-line: #eef1f4;
+  --v2-track-base: #eef1f4;
+  --v2-track-tint: 20%;
+
+  /* The band. White cards then sit ON colour, which is the whole effect. */
+  --v2-hero-bg: linear-gradient(150deg, #3ddba4, #12c2b4 62%, #06a99c);
+  --v2-hero-ink: #ffffff;
+  --v2-hero-r: 26px;
+  --v2-hero-pad: 46px;
+  /* Negative, so the rings card climbs back up onto the band. */
+  --v2-hero-gap: -34px;
+
+  /* Meal tiles: saturated, and a different hue per meal. 86% rather than the
+     92% first tried — at 92% they were pastel again, which is the thing being
+     fixed. Not lower, because a food emoji sits on top and needs to stay
+     legible against it. */
+  --v2-tile-s: 85%;
+  --v2-tile-l: 86%;
+}
+
+.v2[data-palette="bright"] .v2-avatar {
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.v2[data-palette="bright"] .v2-rings,
+.v2[data-palette="bright"] .v2-capture-card,
+.v2[data-palette="bright"] .v2-meal {
+  box-shadow: 0 6px 18px rgba(20, 40, 60, 0.09);
+}
+
+/* ---------- meal tiles ----------
+ *
+ * Hue comes from the meal name (see tileHue), saturation and lightness from
+ * the palette — so one rule covers a subtle grey-blue in "soft" and a vivid
+ * block in "bright", and the list stops being a column of identical squares.
+ */
+.v2-thumb:not(img) {
+  background: hsl(
+    var(--tile-h, 200) var(--v2-tile-s, 30%) var(--v2-tile-l, 95%)
+  );
+}
