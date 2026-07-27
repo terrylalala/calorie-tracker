@@ -482,23 +482,41 @@ function Tracker() {
     [entries, today],
   );
 
-  // The distinct meals eaten most recently, newest first, deduped by name so a
-  // meal logged every day shows once (carrying its most recent numbers). This
-  // is the "log again" list — capped so it stays a quick glance, not a history.
+  // The "log again" list, ranked by HABIT rather than pure recency: the meals
+  // logged most often in the last two weeks come first. Recency alone dropped a
+  // daily staple off the strip whenever a few new dishes were tried that week;
+  // frequency-in-a-window keeps current staples up and lets old one-offs fade.
+  //
+  // Each name is counted once per logging within the window, but the chip
+  // carries the meal's MOST RECENT instance (latest numbers/portion/photo).
+  // Meals with no logging inside the window still appear, ranked last by count
+  // and ordered by recency, so the strip never empties out after a quiet spell.
   const recentMeals = useMemo(() => {
-    const byRecency = [...entries].sort(
-      (a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp),
-    );
-    const seen = new Set<string>();
-    const out: FoodEntry[] = [];
-    for (const e of byRecency) {
+    const cutoff = Date.now() - 14 * 86_400_000;
+    const groups = new Map<
+      string,
+      { entry: FoodEntry; count: number; lastTs: number }
+    >();
+    for (const e of entries) {
       const key = e.name.trim().toLowerCase();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      out.push(e);
-      if (out.length >= 8) break;
+      if (!key) continue;
+      const ts = Date.parse(e.timestamp);
+      const inWindow = ts >= cutoff ? 1 : 0;
+      const g = groups.get(key);
+      if (!g) {
+        groups.set(key, { entry: e, count: inWindow, lastTs: ts });
+      } else {
+        g.count += inWindow;
+        if (ts > g.lastTs) {
+          g.lastTs = ts;
+          g.entry = e; // keep the most recent instance for its numbers
+        }
+      }
     }
-    return out;
+    return [...groups.values()]
+      .sort((a, b) => b.count - a.count || b.lastTs - a.lastTs)
+      .slice(0, 8)
+      .map((g) => g.entry);
   }, [entries]);
 
   // Four dials, as in the shipped design. Each keeps its own colour so the row
