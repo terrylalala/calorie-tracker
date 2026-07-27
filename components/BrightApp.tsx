@@ -581,23 +581,6 @@ function Tracker() {
             >
               Add manually instead
             </button>
-            {/* capture="environment" opens the camera directly on a phone; the
-                second input has no capture attribute so it opens the library. */}
-            <input
-              ref={cameraRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={handleFile}
-            />
-            <input
-              ref={libraryRef}
-              type="file"
-              accept="image/*"
-              hidden
-              onChange={handleFile}
-            />
           </section>
 
           <div className="v2-section">
@@ -738,6 +721,28 @@ function Tracker() {
           </button>
         </div>
       </nav>
+
+      {/* The hidden photo inputs live at the top level, NOT inside the Today
+          tab, because History's "Add a past meal" chooser fires them too. When
+          they were rendered only under tab === "today", cameraRef/libraryRef
+          were null on the History tab and Take/Choose photo silently did
+          nothing. capture="environment" opens the camera; the second input has
+          no capture attribute so it opens the library. */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        onChange={handleFile}
+      />
+      <input
+        ref={libraryRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={handleFile}
+      />
 
       {analysis && (
         <AnalyzeSheet
