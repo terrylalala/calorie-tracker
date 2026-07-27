@@ -1047,3 +1047,45 @@
   margin-bottom: 16px;
   cursor: pointer;
 }
+
+/* "Add a past meal" — the backfill launcher on History. Colour belongs in a
+   filled BLOCK (rule 1), and it follows the active tab's hue (violet here)
+   rather than adding more mint (rule 3). The hue is deepened 8% so white ink
+   clears AA on it — white on the raw #6d5ce8 is 4.84:1, on the deepened hue
+   comfortably more (rule 5: pick ink to suit the hue). */
+.add-past-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0 0 18px;
+  padding: 13px 14px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  border: 0;
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--v2-tab-hue, var(--v2-cyan-deep)) 92%, #000);
+  color: #fff;
+  cursor: pointer;
+}
+.add-past-btn span {
+  font-size: 1.15rem;
+  line-height: 1;
+  margin-top: -1px;
+}
+
+/* The two When inputs sit on one row; each input keeps the shared .field
+   styling but drops the default full width so they share the line. */
+.when-row {
+  display: flex;
+  gap: 10px;
+}
+.when-row input {
+  width: auto;
+  flex: 1;
+}
+.when-row input[type="date"] {
+  flex: 1.4;
+}

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Analysis, FoodEntry } from "@/lib/types";
 import { dateKey } from "@/lib/nutrition";
+import { WhenParts, localParts, partsToDate } from "@/lib/when";
+import WhenField from "@/components/WhenField";
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -20,11 +22,14 @@ export default function AnalyzeSheet({
   previewUrl,
   onSave,
   onClose,
+  initialWhen,
 }: {
   analysis: Analysis;
   previewUrl?: string;
   onSave: (entry: FoodEntry) => void;
   onClose: () => void;
+  /** When set, the sheet is backfilling: show a When field and stamp that date. */
+  initialWhen?: Date;
 }) {
   const items = analysis.items ?? [];
   const basePortion =
@@ -41,6 +46,9 @@ export default function AnalyzeSheet({
   // 0.5× then 2× returns to the original numbers (no compounding drift).
   const [multiplier, setMultiplier] = useState<number | null>(1);
   const [portionEdited, setPortionEdited] = useState(false);
+  const [when, setWhen] = useState<WhenParts | null>(
+    initialWhen ? localParts(initialWhen) : null,
+  );
 
   function applyMultiplier(m: number) {
     setMultiplier(m);
@@ -68,11 +76,11 @@ export default function AnalyzeSheet({
   };
 
   function handleSave() {
-    const now = new Date();
+    const at = when ? partsToDate(when) : new Date();
     const entry: FoodEntry = {
       id: newId(),
-      timestamp: now.toISOString(),
-      date: dateKey(now),
+      timestamp: at.toISOString(),
+      date: dateKey(at),
       name: name.trim() || "Meal",
       portion: portion.trim(),
       calories: num(calories),
@@ -94,13 +102,15 @@ export default function AnalyzeSheet({
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
-          <h2>Review &amp; log</h2>
+          <h2>{when ? "Review past meal" : "Review & log"}</h2>
           <button className="close" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
         <div className="sheet-scroll">
         {previewUrl && <img className="thumb" src={previewUrl} alt="Food" />}
+
+        {when && <WhenField value={when} onChange={setWhen} />}
 
         <div className="field">
           <label>Food</label>

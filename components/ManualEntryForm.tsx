@@ -3,18 +3,28 @@
 import { useState } from "react";
 import { FoodEntry } from "@/lib/types";
 import { dateKey } from "@/lib/nutrition";
+import { WhenParts, localParts, partsToDate } from "@/lib/when";
+import WhenField from "@/components/WhenField";
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Manual (no-photo) food entry sheet. */
+/**
+ * Manual (no-photo) food entry sheet.
+ *
+ * `initialWhen` switches this into backfill mode: a When field appears and the
+ * entry is stamped with the chosen date/time instead of now. Omitted on the
+ * normal Today flow, which stays "log now" with no extra field.
+ */
 export default function ManualEntryForm({
   onSave,
   onClose,
+  initialWhen,
 }: {
   onSave: (entry: FoodEntry) => void;
   onClose: () => void;
+  initialWhen?: Date;
 }) {
   const [name, setName] = useState("");
   const [portion, setPortion] = useState("");
@@ -22,6 +32,9 @@ export default function ManualEntryForm({
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
+  const [when, setWhen] = useState<WhenParts | null>(
+    initialWhen ? localParts(initialWhen) : null,
+  );
 
   const num = (s: string) => {
     const n = parseFloat(s);
@@ -31,11 +44,11 @@ export default function ManualEntryForm({
   const canSave = name.trim().length > 0 && num(calories) >= 0 && calories.trim() !== "";
 
   function handleSave() {
-    const now = new Date();
+    const at = when ? partsToDate(when) : new Date();
     onSave({
       id: newId(),
-      timestamp: now.toISOString(),
-      date: dateKey(now),
+      timestamp: at.toISOString(),
+      date: dateKey(at),
       name: name.trim(),
       portion: portion.trim(),
       calories: num(calories),
@@ -51,8 +64,14 @@ export default function ManualEntryForm({
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grip" />
         <div className="sheet-scroll">
-        <h2>Add food manually</h2>
-        <p className="assumptions">Enter what you can — only a name and calories are required.</p>
+        <h2>{when ? "Add a past meal" : "Add food manually"}</h2>
+        <p className="assumptions">
+          {when
+            ? "Set when you ate it, then enter what you can — only a name and calories are required."
+            : "Enter what you can — only a name and calories are required."}
+        </p>
+
+        {when && <WhenField value={when} onChange={setWhen} />}
 
         <div className="field">
           <label>Food *</label>

@@ -12,6 +12,7 @@ import {
   removeEntry as storeRemoveEntry,
 } from "@/lib/dataStore";
 import { buildLogsSummary, dateKey, totalsForDate } from "@/lib/nutrition";
+import { defaultBackfillWhen } from "@/lib/when";
 import { loadProfile } from "@/lib/storage";
 import { putSettings } from "@/lib/dataStore";
 import AuthGate from "@/components/AuthGate";
@@ -170,6 +171,58 @@ function FaceIcon() {
   );
 }
 
+/**
+ * The three-way "how do you want to add it?" chooser shown when backfilling a
+ * past meal from History. It reuses the exact same three inputs as the Today
+ * capture card (camera, library, manual) so there is one logging pipeline, not
+ * a second parallel one — the only difference downstream is that a past date is
+ * already seeded, which makes the sheets show their When field.
+ */
+function BackfillChooser({
+  onClose,
+  onPhoto,
+  onLibrary,
+  onManual,
+}: {
+  onClose: () => void;
+  onPhoto: () => void;
+  onLibrary: () => void;
+  onManual: () => void;
+}) {
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-grip" />
+        <div className="sheet-scroll">
+          <h2>Add a past meal</h2>
+          <p className="assumptions">
+            Snap or pick a photo and the AI fills in the food — you set the day.
+            Or type it in yourself.
+          </p>
+          <div className="v2-capture-actions" style={{ marginTop: 8 }}>
+            <button className="v2-btn primary" onClick={onPhoto}>
+              Take photo
+            </button>
+            <button className="v2-btn" onClick={onLibrary}>
+              Choose photo
+            </button>
+          </div>
+          <button className="v2-manual" onClick={onManual}>
+            Add manually instead
+          </button>
+        </div>
+        <div className="sheet-footer">
+          <div className="fab-row">
+            <button className="btn" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NavIcon({ d }: { d: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
@@ -205,6 +258,11 @@ function Tracker() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
+  // Backfill: non-null seeds the logging sheets with a past date and makes them
+  // show a "When" field. Null is the normal "log now" path. It is set from the
+  // History tab's "Add a past meal" button and cleared after a save or cancel.
+  const [backfillWhen, setBackfillWhen] = useState<Date | null>(null);
+  const [showBackfillChooser, setShowBackfillChooser] = useState(false);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
@@ -319,11 +377,14 @@ function Tracker() {
     setPreviewUrl(undefined);
     setCaptured(null);
     setShowManual(false);
+    setBackfillWhen(null);
     // The backup-model warning says "check the numbers before saving", so it
     // has to go once the meal IS saved — otherwise it sits there contradicting
     // itself over a log entry that is already written.
     setNotice(null);
-    setTab("today");
+    // A backfilled meal belongs to a past day, so jumping to Today would land on
+    // a screen that doesn't show it. Stay in History, where it just appeared.
+    setTab(entry.date === dateKey() ? "today" : "history");
     try {
       await storeAddEntry(mode, entry, next, photo);
       if (photo) {
@@ -468,7 +529,10 @@ function Tracker() {
           <section className="v2-capture-card">
             <button
               className="v2-face-btn"
-              onClick={() => cameraRef.current?.click()}
+              onClick={() => {
+                setBackfillWhen(null);
+                cameraRef.current?.click();
+              }}
               disabled={analyzing}
               aria-label="Take a photo of your meal"
             >
@@ -485,14 +549,20 @@ function Tracker() {
             <div className="v2-capture-actions">
               <button
                 className="v2-btn primary"
-                onClick={() => cameraRef.current?.click()}
+                onClick={() => {
+                setBackfillWhen(null);
+                cameraRef.current?.click();
+              }}
                 disabled={analyzing}
               >
                 Take photo
               </button>
               <button
                 className="v2-btn"
-                onClick={() => libraryRef.current?.click()}
+                onClick={() => {
+                  setBackfillWhen(null);
+                  libraryRef.current?.click();
+                }}
                 disabled={analyzing}
               >
                 Choose photo
@@ -503,7 +573,10 @@ function Tracker() {
                 for five straight hours on 20 July. */}
             <button
               className="v2-manual"
-              onClick={() => setShowManual(true)}
+              onClick={() => {
+                setBackfillWhen(null);
+                setShowManual(true);
+              }}
               disabled={analyzing}
             >
               Add manually instead
@@ -621,6 +694,10 @@ function Tracker() {
           goals={goals}
           onOpen={setDetail}
           onDelete={deleteEntry}
+          onAddPastMeal={() => {
+            setBackfillWhen(defaultBackfillWhen());
+            setShowBackfillChooser(true);
+          }}
         />
       ) : tab === "coach" ? (
         <CoachView logsSummary={logsSummary} hasData={entries.length > 0} />
@@ -666,11 +743,13 @@ function Tracker() {
         <AnalyzeSheet
           analysis={analysis}
           previewUrl={previewUrl}
+          initialWhen={backfillWhen ?? undefined}
           onSave={addEntry}
           onClose={() => {
             setAnalysis(null);
             setPreviewUrl(undefined);
             setCaptured(null);
+            setBackfillWhen(null);
             // Same reason as in addEntry: the warning is about the estimate on
             // screen, so it goes when that estimate does.
             setNotice(null);
@@ -679,7 +758,35 @@ function Tracker() {
       )}
 
       {showManual && (
-        <ManualEntryForm onSave={addEntry} onClose={() => setShowManual(false)} />
+        <ManualEntryForm
+          onSave={addEntry}
+          initialWhen={backfillWhen ?? undefined}
+          onClose={() => {
+            setShowManual(false);
+            setBackfillWhen(null);
+          }}
+        />
+      )}
+
+      {showBackfillChooser && (
+        <BackfillChooser
+          onClose={() => {
+            setShowBackfillChooser(false);
+            setBackfillWhen(null);
+          }}
+          onPhoto={() => {
+            setShowBackfillChooser(false);
+            cameraRef.current?.click();
+          }}
+          onLibrary={() => {
+            setShowBackfillChooser(false);
+            libraryRef.current?.click();
+          }}
+          onManual={() => {
+            setShowBackfillChooser(false);
+            setShowManual(true);
+          }}
+        />
       )}
 
       {detail && (

@@ -20,11 +20,15 @@ export default function HistoryView({
   goals,
   onOpen,
   onDelete,
+  onAddPastMeal,
 }: {
   entries: FoodEntry[];
   goals: Goals;
   onOpen: (e: FoodEntry) => void;
   onDelete: (id: string) => void;
+  /** Open the backfill flow for a missed day. Optional so the view still works
+   *  anywhere it might be rendered without the launcher wired in. */
+  onAddPastMeal?: () => void;
 }) {
   const [range, setRange] = useState<7 | 30>(7);
   const [openDay, setOpenDay] = useState<string | null>(null);
@@ -39,6 +43,12 @@ export default function HistoryView({
       <p className="page-sub">
         {logged.length} day{logged.length === 1 ? "" : "s"} logged in the last {range}.
       </p>
+
+      {onAddPastMeal && (
+        <button className="add-past-btn" onClick={onAddPastMeal}>
+          <span aria-hidden="true">＋</span> Add a past meal
+        </button>
+      )}
 
       <div className="card">
         <div className="range-toggle">
