@@ -123,6 +123,10 @@ function hhmm(iso: string): string {
   });
 }
 
+function newId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function greetingFor(d: Date): string {
   const h = d.getHours();
   if (h < 12) return "Good morning";
@@ -397,6 +401,37 @@ function Tracker() {
     }
   }
 
+  /**
+   * Re-log a past meal to now, with no photo and no AI call. This is the whole
+   * point of the recent list: the meals you repeat should cost one tap, and
+   * should keep working when Gemini is down or the daily AI cap is spent.
+   *
+   * The copy drops the photo (source becomes "manual"): a photo belongs to the
+   * plate you actually shot, and re-serving an old image as today's meal would
+   * be quietly wrong. The macros, portion and item breakdown carry over.
+   */
+  function logAgain(src: FoodEntry) {
+    const now = new Date();
+    addEntry({
+      id: newId(),
+      timestamp: now.toISOString(),
+      date: dateKey(now),
+      name: src.name,
+      portion: src.portion,
+      calories: src.calories,
+      protein_g: src.protein_g,
+      carbs_g: src.carbs_g,
+      fat_g: src.fat_g,
+      items: src.items,
+      note: src.note,
+      source: "manual",
+    });
+    // addEntry clears the notice synchronously before its await, so setting it
+    // afterwards wins. The new meal lands lower down under its sitting, which
+    // can be below the fold, so this confirms the tap did something.
+    setNotice(`Logged “${src.name}” again.`);
+  }
+
   async function deleteEntry(id: string) {
     const next = entries.filter((e) => e.id !== id);
     setEntries(next);
@@ -426,6 +461,25 @@ function Tracker() {
     () => entries.filter((e) => e.date === today),
     [entries, today],
   );
+
+  // The distinct meals eaten most recently, newest first, deduped by name so a
+  // meal logged every day shows once (carrying its most recent numbers). This
+  // is the "log again" list — capped so it stays a quick glance, not a history.
+  const recentMeals = useMemo(() => {
+    const byRecency = [...entries].sort(
+      (a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp),
+    );
+    const seen = new Set<string>();
+    const out: FoodEntry[] = [];
+    for (const e of byRecency) {
+      const key = e.name.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(e);
+      if (out.length >= 8) break;
+    }
+    return out;
+  }, [entries]);
 
   // Four dials, as in the shipped design. Each keeps its own colour so the row
   // is scannable without reading the labels.
@@ -582,6 +636,46 @@ function Tracker() {
               Add manually instead
             </button>
           </section>
+
+          {/* One-tap re-log of meals you eat often. No photo, no AI call — so it
+              is fast, spends no daily AI quota, and still works when Gemini is
+              down. Hidden until there is any history to draw from. */}
+          {recentMeals.length > 0 && (
+            <div className="v2-recent">
+              <div className="v2-section">
+                <h2>Log again</h2>
+                <span>tap to add to today</span>
+              </div>
+              <div className="v2-recent-row">
+                {recentMeals.map((m) => (
+                  <button
+                    className="v2-recent-chip"
+                    key={m.id}
+                    onClick={() => logAgain(m)}
+                    disabled={analyzing}
+                  >
+                    {m.hasPhoto ? (
+                      <img
+                        className="v2-thumb v2-recent-thumb"
+                        src={`/api/photo/${encodeURIComponent(m.id)}?size=thumb`}
+                        alt=""
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div
+                        className="v2-thumb v2-recent-thumb"
+                        style={{ "--tile-h": tileHue(m.name) } as React.CSSProperties}
+                      >
+                        {foodEmoji(m.name)}
+                      </div>
+                    )}
+                    <div className="v2-recent-name">{m.name}</div>
+                    <div className="v2-recent-kcal">{Math.round(m.calories)} kcal</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="v2-section">
             <h2>Today&rsquo;s meals</h2>

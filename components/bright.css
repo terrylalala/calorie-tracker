@@ -1089,3 +1089,74 @@
 .when-row input[type="date"] {
   flex: 1.4;
 }
+
+/* ---------- "Log again" recent meals ----------
+ *
+ * A horizontal, swipeable row of the meals eaten most recently. One tap
+ * re-logs to now with no photo and no AI. Kept as its own compact strip above
+ * Today's meals so the everyday repeats are the first thing in reach. */
+.v2-recent-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  /* Bleed to the screen edges so the last chip clearly runs off, signalling
+     there is more to swipe, then pad back so the first chip lines up. */
+  margin: 0 -18px;
+  padding: 2px 18px 6px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+/* The row scrolls; the page must not. */
+.v2-recent-row::-webkit-scrollbar {
+  display: none;
+}
+
+.v2-recent-chip {
+  flex: 0 0 auto;
+  width: 118px;
+  scroll-snap-align: start;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  text-align: center;
+  font: inherit;
+  color: inherit;
+  border: 0;
+  cursor: pointer;
+  background: var(--v2-card);
+  border-radius: var(--v2-r-sm);
+  padding: 12px 10px;
+  box-shadow: 0 1px 5px rgba(43, 47, 56, 0.04);
+}
+.v2-recent-chip:active {
+  transform: scale(0.97);
+}
+.v2-recent-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Bigger than the 46px list thumb — it is the whole visual of the chip. */
+.v2-recent-thumb {
+  width: 54px;
+  height: 54px;
+  font-size: 1.6rem;
+}
+
+.v2-recent-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+  /* Two lines max, then ellipsis, so a long dish name can't blow up the row. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.v2-recent-kcal {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--v2-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
