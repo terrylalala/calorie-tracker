@@ -1304,3 +1304,16 @@
   text-underline-offset: 3px;
   cursor: pointer;
 }
+
+/* Offline queue banner: informational, amber (waiting), sits with the other
+   top-of-app banners. Not dismissable — it clears itself when the queue drains. */
+.v2-pending {
+  background: color-mix(in srgb, #f79318 16%, #fff);
+  color: color-mix(in srgb, #f79318 72%, #000);
+  border-radius: var(--v2-r-sm);
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  font-weight: 600;
+  margin-bottom: 16px;
+}

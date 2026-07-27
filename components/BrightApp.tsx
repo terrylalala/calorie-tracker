@@ -31,6 +31,12 @@ import CoachView from "@/components/CoachView";
 import SettingsView from "@/components/SettingsView";
 import { CapturedImage, downscale } from "@/components/CameraCapture";
 import { foodEmoji, tileHue } from "@/components/EntryCard";
+import {
+  PendingItem,
+  loadQueue,
+  addToQueue,
+  removeFromQueue,
+} from "@/lib/pendingQueue";
 
 /**
  * The app. Rendered at / and, for anyone who bookmarked it during the
@@ -278,12 +284,27 @@ function Tracker() {
   // The meal currently being edited (via its detail sheet). Non-null opens the
   // manual form pre-filled and saving updates that row in place.
   const [editing, setEditing] = useState<FoodEntry | null>(null);
+  // Offline retry queue: estimates captured with no signal, plus the online
+  // flag and the id of the queued item currently open in the review sheet.
+  const [pending, setPending] = useState<PendingItem[]>([]);
+  const [online, setOnline] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    // Offline queue + connection state. The 'online' event is what kicks a
+    // reconnect into retrying (via the auto-advance effect below).
+    setPending(loadQueue());
+    setOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+
     // Remembered so the choice survives a reload while comparing — but only
     // where the switcher exists. In production the shipped palette wins over
     // any leftover saved value, since there would be no way to undo it.
@@ -325,8 +346,21 @@ function Tracker() {
       .catch(() => {});
     return () => {
       cancelled = true;
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
     };
   }, []);
+
+  // Auto-advance the offline queue. Every dependency is a condition processNext
+  // checks, so a change to any of them — reconnecting, a sheet closing, a new
+  // item queued, the app mounting — re-attempts the oldest queued estimate.
+  useEffect(() => {
+    processNext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    mounted, online, pending, processingId, analyzing,
+    analysis, showManual, showDescribe, editing, detail, showBackfillChooser,
+  ]);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -372,7 +406,14 @@ function Tracker() {
         }
       }
     } catch {
-      setError("Network error. Please check your connection and try again.");
+      // Couldn't reach the server (offline). Keep the photo and finish later.
+      queueOffline({
+        kind: "photo",
+        imageBase64: img.base64,
+        mediaType: img.mediaType,
+        thumbBase64: img.thumbBase64,
+        previewDataUrl: img.dataUrl,
+      });
       setPreviewUrl(undefined);
     } finally {
       setAnalyzing(false);
@@ -410,9 +451,105 @@ function Tracker() {
         }
       }
     } catch {
-      setError("Network error. Please check your connection and try again.");
+      // Offline: keep the description and estimate it once reconnected.
+      queueOffline({ kind: "text", text });
+      setShowDescribe(false);
     } finally {
       setAnalyzing(false);
+    }
+  }
+
+  /** Save a capture that couldn't reach Gemini (offline) for a later retry. */
+  function queueOffline(partial: Omit<PendingItem, "id" | "createdAt">) {
+    const item: PendingItem = {
+      ...partial,
+      id: newId(),
+      createdAt: new Date().toISOString(),
+    };
+    const result = addToQueue(item);
+    if (result === "full") {
+      setError("Offline queue is full (8 meals). Reconnect to clear it before adding more.");
+      return;
+    }
+    if (result === "error") {
+      setError("Couldn't save offline — this device's storage may be full.");
+      return;
+    }
+    setPending(loadQueue());
+    setNotice("No connection — saved. It'll be estimated automatically once you're back online.");
+  }
+
+  /**
+   * Retry the oldest queued estimate, but only when idle: online, not already
+   * analyzing or reviewing a queued item, and with no sheet open. On success it
+   * opens the review sheet seeded so Save behaves like the original capture; the
+   * item is dropped from the queue when that sheet is saved or discarded. A
+   * network failure leaves it queued; a server error drops it so one bad item
+   * can't jam the rest. Called by the effect above whenever those conditions
+   * next hold.
+   */
+  async function processNext() {
+    if (!mounted || !online || analyzing || processingId) return;
+    if (analysis || showManual || showDescribe || editing || detail || showBackfillChooser) return;
+    const queue = loadQueue();
+    if (queue.length === 0) return;
+    const item = queue[0];
+
+    setProcessingId(item.id);
+    setAnalyzing(true);
+    try {
+      const body =
+        item.kind === "photo"
+          ? { imageBase64: item.imageBase64, mediaType: item.mediaType }
+          : { text: item.text };
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: apiHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        // A real server error, not offline — drop it so it can't block the rest.
+        setPending(removeFromQueue(item.id));
+        setProcessingId(null);
+        setError(data.error || "Couldn't estimate a saved meal.");
+        return;
+      }
+      if (item.kind === "photo") {
+        setCaptured({
+          base64: item.imageBase64 ?? "",
+          mediaType: "image/jpeg",
+          thumbBase64: item.thumbBase64 ?? "",
+          dataUrl: item.previewDataUrl ?? "",
+        });
+        setAnalysisFromText(false);
+        setPreviewUrl(item.previewDataUrl);
+      } else {
+        setCaptured(null);
+        setAnalysisFromText(true);
+        setPreviewUrl(undefined);
+      }
+      setBackfillWhen(null);
+      setAnalysis(data.analysis as Analysis);
+      if (data.fallbackModel) {
+        setNotice(
+          "The usual AI model was busy, so a smaller backup one estimated this. Check the numbers before saving.",
+        );
+      }
+      // processingId stays set until the review sheet is saved or discarded.
+    } catch {
+      // Still offline — leave it queued and stop for now.
+      setProcessingId(null);
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  /** Drop the queued item that a just-closed review sheet came from, if any. */
+  function clearProcessed() {
+    if (processingId) {
+      setPending(removeFromQueue(processingId));
+      setProcessingId(null);
     }
   }
 
@@ -433,6 +570,7 @@ function Tracker() {
     setCaptured(null);
     setShowManual(false);
     setBackfillWhen(null);
+    clearProcessed();
     // The backup-model warning says "check the numbers before saving", so it
     // has to go once the meal IS saved — otherwise it sits there contradicting
     // itself over a log entry that is already written.
@@ -646,6 +784,12 @@ function Tracker() {
       {notice && (
         <div className="v2-notice" onClick={() => setNotice(null)}>
           ☁️ {notice}
+        </div>
+      )}
+      {pending.length > 0 && (
+        <div className="v2-pending">
+          🕗 {pending.length} saved meal{pending.length === 1 ? "" : "s"}{" "}
+          {online ? "to estimate…" : "waiting for a connection."}
         </div>
       )}
 
@@ -981,6 +1125,9 @@ function Tracker() {
             setPreviewUrl(undefined);
             setCaptured(null);
             setBackfillWhen(null);
+            // Discarding a queued item drops it from the queue too — the user
+            // chose not to keep it — and lets the next one advance.
+            clearProcessed();
             // Same reason as in addEntry: the warning is about the estimate on
             // screen, so it goes when that estimate does.
             setNotice(null);
