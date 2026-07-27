@@ -1090,6 +1090,29 @@
   flex: 1.4;
 }
 
+/* The "describe your meal" textarea. globals' .field styles inputs and selects
+   but not textareas, so it mirrors those values and adds a comfortable height. */
+.describe-input {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text);
+  padding: 13px 14px;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+  resize: vertical;
+  min-height: 96px;
+}
+.describe-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.describe-input:disabled {
+  opacity: 0.6;
+}
+
 /* ---------- "Log again" recent meals ----------
  *
  * A horizontal, swipeable row of the meals eaten most recently. One tap

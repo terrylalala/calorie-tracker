@@ -92,6 +92,22 @@ Guidelines:
 - "confidence" is your overall confidence from 0 to 1.
 - Keep "assumptions" short and practical (what you assumed, what to adjust if wrong).`;
 
+// Same task and same schema, but the input is a written description instead of a
+// photo. Portions are less certain from words than from a picture, so the prompt
+// leans on stated quantities and asks for lower confidence when they are absent.
+const TEXT_PROMPT = `You are a nutrition estimation assistant. Given a short WRITTEN DESCRIPTION of a meal, identify each item and estimate calories and macronutrients (protein, carbs, fat in grams).
+
+Guidelines:
+- If a quantity or portion is stated, use it. If none is given, assume ONE typical serving and say so in "assumptions".
+- The per-item macros should sum to roughly the meal totals.
+- If the text does not describe food, return zeros with confidence 0 and explain in "assumptions".
+- Be realistic, not aspirational — restaurant portions and cooking oils add calories.
+- "confidence" is your overall confidence from 0 to 1. Text without portions is less certain than a photo, so keep it modest.
+- Keep "assumptions" short and practical (what you assumed, what to adjust if wrong).`;
+
+// A written description won't be longer than this in any sane use; reject early.
+const MAX_TEXT_LENGTH = 500;
+
 export async function POST(req: NextRequest) {
   const authz = await requireUser(req);
   if (!authz.ok) return authz.response;
@@ -99,70 +115,95 @@ export async function POST(req: NextRequest) {
   const quota = await consume(ownerId(authz.user), "analyze");
   if (!quota.allowed) return rateLimited(quota.limit);
 
-  let body: { imageBase64?: string; mediaType?: string };
+  let body: { imageBase64?: string; mediaType?: string; text?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { imageBase64, mediaType } = body;
+  const { imageBase64, mediaType, text } = body;
 
-  if (!imageBase64 || typeof imageBase64 !== "string") {
+  // Config shared by both input modes. Only the prompt and the request parts
+  // differ between a photo and a written description; the schema, thinking
+  // budget, output headroom and call bounds are identical.
+  const sharedConfig = {
+    responseMimeType: "application/json",
+    responseSchema: ANALYSIS_SCHEMA,
+    // Thinking as good as off: this is a structured extraction task, and
+    // thinking tokens come out of maxOutputTokens, truncating the JSON.
+    thinkingConfig: MINIMAL_THINKING,
+    // Headroom for the self-heal in generateOnce, which drops thinkingConfig
+    // if the API rejects it. A measured worst case (a 9-item plate) spent
+    // 1916 thinking + 759 output tokens, so 2048 was not enough to survive
+    // that path and the retry would have truncated instead of answering.
+    maxOutputTokens: 4096,
+    temperature: 0.2,
+    ...aiCallBounds(),
+  };
+
+  // Two ways in: a photo, or a written description. A photo wins if both are
+  // sent. Validate whichever was given, and reject if neither was.
+  let imageData: string | null = null;
+  let description: string | null = null;
+
+  if (typeof imageBase64 === "string" && imageBase64.length > 0) {
+    if (!mediaType || !ALLOWED_MEDIA_TYPES.includes(mediaType as AllowedMediaType)) {
+      return NextResponse.json(
+        { error: `Unsupported media type. Use one of: ${ALLOWED_MEDIA_TYPES.join(", ")}.` },
+        { status: 400 },
+      );
+    }
+    // Strip an accidental data: URL prefix if the client sent one.
+    imageData = imageBase64.includes(",")
+      ? imageBase64.slice(imageBase64.indexOf(",") + 1)
+      : imageBase64;
+    if (imageData.length > MAX_BASE64_LENGTH) {
+      return NextResponse.json(
+        { error: "Image is too large. Please use a smaller photo." },
+        { status: 413 },
+      );
+    }
+  } else if (typeof text === "string" && text.trim().length > 0) {
+    description = text.trim();
+    if (description.length > MAX_TEXT_LENGTH) {
+      return NextResponse.json(
+        { error: "Description is too long. Please keep it to a sentence or two." },
+        { status: 400 },
+      );
+    }
+  } else {
     return NextResponse.json(
-      { error: "Missing 'imageBase64' (base64 image data, no data: prefix)." },
+      { error: "Provide a photo ('imageBase64') or a 'text' description." },
       { status: 400 },
     );
   }
-  if (!mediaType || !ALLOWED_MEDIA_TYPES.includes(mediaType as AllowedMediaType)) {
-    return NextResponse.json(
-      { error: `Unsupported media type. Use one of: ${ALLOWED_MEDIA_TYPES.join(", ")}.` },
-      { status: 400 },
-    );
-  }
 
-  // Strip an accidental data: URL prefix if the client sent one.
-  const data = imageBase64.includes(",")
-    ? imageBase64.slice(imageBase64.indexOf(",") + 1)
-    : imageBase64;
-
-  if (data.length > MAX_BASE64_LENGTH) {
-    return NextResponse.json(
-      { error: "Image is too large. Please use a smaller photo." },
-      { status: 413 },
-    );
-  }
+  const request =
+    imageData !== null
+      ? {
+          model: GEMINI_MODEL,
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { inlineData: { mimeType: mediaType as string, data: imageData } },
+                { text: "Analyze this food photo and return the macro estimate." },
+              ],
+            },
+          ],
+          config: { systemInstruction: SYSTEM_PROMPT, ...sharedConfig },
+        }
+      : {
+          model: GEMINI_MODEL,
+          contents: `Estimate the macros for this meal:\n\n${description}`,
+          config: { systemInstruction: TEXT_PROMPT, ...sharedConfig },
+        };
 
   const startedAt = Date.now();
   try {
     const ai = getGemini();
-    const { response, model, usedFallback } = await generateWithFallback(ai, {
-      model: GEMINI_MODEL,
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { inlineData: { mimeType: mediaType, data } },
-            { text: "Analyze this food photo and return the macro estimate." },
-          ],
-        },
-      ],
-      config: {
-        systemInstruction: SYSTEM_PROMPT,
-        responseMimeType: "application/json",
-        responseSchema: ANALYSIS_SCHEMA,
-        // Thinking as good as off: this is a structured extraction task, and
-        // thinking tokens come out of maxOutputTokens, truncating the JSON.
-        thinkingConfig: MINIMAL_THINKING,
-        // Headroom for the self-heal in generateOnce, which drops thinkingConfig
-        // if the API rejects it. A measured worst case (a 9-item plate) spent
-        // 1916 thinking + 759 output tokens, so 2048 was not enough to survive
-        // that path and the retry would have truncated instead of answering.
-        maxOutputTokens: 4096,
-        temperature: 0.2,
-        ...aiCallBounds(),
-      },
-    });
+    const { response, model, usedFallback } = await generateWithFallback(ai, request);
 
     // Log slow successes. Hobby-plan log retention is short, so this is only
     // useful in the moment — but "it worked, in 38s" and "it worked, in 4s" are

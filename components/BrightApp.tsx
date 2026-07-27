@@ -19,6 +19,7 @@ import AuthGate from "@/components/AuthGate";
 import AnalyzeSheet from "@/components/AnalyzeSheet";
 import MealDetailSheet from "@/components/MealDetailSheet";
 import ManualEntryForm from "@/components/ManualEntryForm";
+import DescribeSheet from "@/components/DescribeSheet";
 // History, Coach and Settings are shared with nothing else now, but they stay
 // separate components: they are re-skinned by the token remapping in
 // bright.css rather than reimplemented, and that seam is what kept one
@@ -256,6 +257,10 @@ function Tracker() {
   // photo flow, mirroring the live app's
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
+  // True when the current analysis came from a typed description, not a photo,
+  // so the review sheet saves it as a no-photo meal.
+  const [analysisFromText, setAnalysisFromText] = useState(false);
+  const [showDescribe, setShowDescribe] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | undefined>();
   const [captured, setCaptured] = useState<CapturedImage | null>(null);
   const [detail, setDetail] = useState<FoodEntry | null>(null);
@@ -337,6 +342,7 @@ function Tracker() {
     }
 
     setError(null);
+    setAnalysisFromText(false);
     setPreviewUrl(img.dataUrl);
     setCaptured(img);
     setAnalyzing(true);
@@ -369,6 +375,43 @@ function Tracker() {
     }
   }
 
+  /**
+   * The text path: send a written description to the same /api/analyze route and
+   * open the same review sheet. captured stays null and the analysis is flagged
+   * as text-origin, so the saved meal has no photo.
+   */
+  async function describeMeal(text: string) {
+    setError(null);
+    setCaptured(null);
+    setPreviewUrl(undefined);
+    setBackfillWhen(null);
+    setAnalyzing(true);
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: apiHeaders(),
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Could not estimate this meal.");
+      } else {
+        setAnalysisFromText(true);
+        setAnalysis(data.analysis as Analysis);
+        setShowDescribe(false);
+        if (data.fallbackModel) {
+          setNotice(
+            "The usual AI model was busy, so a smaller backup one estimated this. Check the numbers before saving.",
+          );
+        }
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
   async function addEntry(entry: FoodEntry) {
     const next = [entry, ...entries];
     const photo =
@@ -381,6 +424,7 @@ function Tracker() {
         : undefined;
     setEntries(next);
     setAnalysis(null);
+    setAnalysisFromText(false);
     setPreviewUrl(undefined);
     setCaptured(null);
     setShowManual(false);
@@ -660,6 +704,17 @@ function Tracker() {
                 Choose photo
               </button>
             </div>
+            {/* The other AI path: words instead of a photo, same review sheet. */}
+            <button
+              className="v2-manual"
+              onClick={() => {
+                setBackfillWhen(null);
+                setShowDescribe(true);
+              }}
+              disabled={analyzing}
+            >
+              Or describe it in words
+            </button>
             {/* The only path that never touches Gemini. Without it this screen
                 cannot log anything at all when the model is down — which it was
                 for five straight hours on 20 July. */}
@@ -881,9 +936,11 @@ function Tracker() {
           analysis={analysis}
           previewUrl={previewUrl}
           initialWhen={backfillWhen ?? undefined}
+          saveAsManual={analysisFromText}
           onSave={addEntry}
           onClose={() => {
             setAnalysis(null);
+            setAnalysisFromText(false);
             setPreviewUrl(undefined);
             setCaptured(null);
             setBackfillWhen(null);
@@ -902,6 +959,14 @@ function Tracker() {
             setShowManual(false);
             setBackfillWhen(null);
           }}
+        />
+      )}
+
+      {showDescribe && (
+        <DescribeSheet
+          busy={analyzing}
+          onEstimate={describeMeal}
+          onClose={() => setShowDescribe(false)}
         />
       )}
 

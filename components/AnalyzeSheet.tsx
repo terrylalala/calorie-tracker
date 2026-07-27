@@ -23,6 +23,7 @@ export default function AnalyzeSheet({
   onSave,
   onClose,
   initialWhen,
+  saveAsManual,
 }: {
   analysis: Analysis;
   previewUrl?: string;
@@ -30,6 +31,9 @@ export default function AnalyzeSheet({
   onClose: () => void;
   /** When set, the sheet is backfilling: show a When field and stamp that date. */
   initialWhen?: Date;
+  /** Estimated from a text description, not a photo — save it as a no-photo
+   *  meal so the detail view doesn't claim a picture that was never taken. */
+  saveAsManual?: boolean;
 }) {
   const items = analysis.items ?? [];
   const basePortion =
@@ -87,7 +91,7 @@ export default function AnalyzeSheet({
       protein_g: num(protein),
       carbs_g: num(carbs),
       fat_g: num(fat),
-      source: "photo",
+      source: saveAsManual ? "manual" : "photo",
       note: analysis.assumptions || undefined,
       // Keep the per-item breakdown so the meal detail view can show it later.
       items: items.length > 0 ? items : undefined,
