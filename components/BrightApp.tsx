@@ -267,6 +267,9 @@ function Tracker() {
   // History tab's "Add a past meal" button and cleared after a save or cancel.
   const [backfillWhen, setBackfillWhen] = useState<Date | null>(null);
   const [showBackfillChooser, setShowBackfillChooser] = useState(false);
+  // The meal currently being edited (via its detail sheet). Non-null opens the
+  // manual form pre-filled and saving updates that row in place.
+  const [editing, setEditing] = useState<FoodEntry | null>(null);
 
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
@@ -430,6 +433,23 @@ function Tracker() {
     // afterwards wins. The new meal lands lower down under its sitting, which
     // can be below the fold, so this confirms the tap did something.
     setNotice(`Logged “${src.name}” again.`);
+  }
+
+  /**
+   * Save edits to an existing meal — same id, so the API upserts the row in
+   * place rather than adding a duplicate. No photo is sent, and the upsert
+   * coalesces the photo columns, so a photo meal keeps its photo.
+   */
+  async function updateEntry(entry: FoodEntry) {
+    const next = entries.map((e) => (e.id === entry.id ? entry : e));
+    setEntries(next);
+    setEditing(null);
+    setNotice(`Updated “${entry.name}”.`);
+    try {
+      await storeAddEntry(mode, entry, next);
+    } catch {
+      setError("Saved on this device, but couldn't reach the database.");
+    }
   }
 
   async function deleteEntry(id: string) {
@@ -892,7 +912,20 @@ function Tracker() {
         <MealDetailSheet
           entry={detail}
           onDelete={deleteEntry}
+          onEdit={(e) => {
+            // Swap the read-only sheet for the edit form on the same meal.
+            setDetail(null);
+            setEditing(e);
+          }}
           onClose={() => setDetail(null)}
+        />
+      )}
+
+      {editing && (
+        <ManualEntryForm
+          editEntry={editing}
+          onSave={updateEntry}
+          onClose={() => setEditing(null)}
         />
       )}
     </div>

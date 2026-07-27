@@ -11,29 +11,46 @@ function newId(): string {
 }
 
 /**
- * Manual (no-photo) food entry sheet.
+ * Manual food entry sheet, in three modes:
  *
- * `initialWhen` switches this into backfill mode: a When field appears and the
- * entry is stamped with the chosen date/time instead of now. Omitted on the
- * normal Today flow, which stays "log now" with no extra field.
+ * - normal Today flow (no props): "log now", no When field;
+ * - backfill (`initialWhen`): a When field appears, stamped with a past date;
+ * - edit (`editEntry`): pre-filled from an existing meal; saving KEEPS its id so
+ *   the API upserts in place. A When field appears so the time can be corrected.
+ *
+ * Edit preserves the parts this form doesn't touch — id, photo, per-item
+ * breakdown, source — by spreading `editEntry` first (see handleSave). That is
+ * why editing a photo meal keeps its photo: the save carries no new image, and
+ * the API upsert coalesces the photo columns to their existing values.
  */
 export default function ManualEntryForm({
   onSave,
   onClose,
   initialWhen,
+  editEntry,
 }: {
   onSave: (entry: FoodEntry) => void;
   onClose: () => void;
   initialWhen?: Date;
+  editEntry?: FoodEntry;
 }) {
-  const [name, setName] = useState("");
-  const [portion, setPortion] = useState("");
-  const [calories, setCalories] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [fat, setFat] = useState("");
+  const editing = !!editEntry;
+  const [name, setName] = useState(editEntry?.name ?? "");
+  const [portion, setPortion] = useState(editEntry?.portion ?? "");
+  const [calories, setCalories] = useState(
+    editEntry ? String(editEntry.calories) : "",
+  );
+  const [protein, setProtein] = useState(
+    editEntry ? String(editEntry.protein_g) : "",
+  );
+  const [carbs, setCarbs] = useState(editEntry ? String(editEntry.carbs_g) : "");
+  const [fat, setFat] = useState(editEntry ? String(editEntry.fat_g) : "");
   const [when, setWhen] = useState<WhenParts | null>(
-    initialWhen ? localParts(initialWhen) : null,
+    editEntry
+      ? localParts(new Date(editEntry.timestamp))
+      : initialWhen
+        ? localParts(initialWhen)
+        : null,
   );
 
   const num = (s: string) => {
@@ -45,8 +62,7 @@ export default function ManualEntryForm({
 
   function handleSave() {
     const at = when ? partsToDate(when) : new Date();
-    onSave({
-      id: newId(),
+    const fields = {
       timestamp: at.toISOString(),
       date: dateKey(at),
       name: name.trim(),
@@ -55,8 +71,12 @@ export default function ManualEntryForm({
       protein_g: num(protein),
       carbs_g: num(carbs),
       fat_g: num(fat),
-      source: "manual",
-    });
+    };
+    onSave(
+      editEntry
+        ? { ...editEntry, ...fields } // keep id, photo, items, source, note
+        : { id: newId(), source: "manual", ...fields },
+    );
   }
 
   return (
@@ -64,11 +84,13 @@ export default function ManualEntryForm({
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grip" />
         <div className="sheet-scroll">
-        <h2>{when ? "Add a past meal" : "Add food manually"}</h2>
+        <h2>{editing ? "Edit meal" : when ? "Add a past meal" : "Add food manually"}</h2>
         <p className="assumptions">
-          {when
-            ? "Set when you ate it, then enter what you can — only a name and calories are required."
-            : "Enter what you can — only a name and calories are required."}
+          {editing
+            ? "Change anything below and save. A name and calories are required."
+            : when
+              ? "Set when you ate it, then enter what you can — only a name and calories are required."
+              : "Enter what you can — only a name and calories are required."}
         </p>
 
         {when && <WhenField value={when} onChange={setWhen} />}
@@ -139,7 +161,7 @@ export default function ManualEntryForm({
               Cancel
             </button>
             <button className="btn primary" disabled={!canSave} onClick={handleSave}>
-              Save to log
+              {editing ? "Save changes" : "Save to log"}
             </button>
           </div>
         </div>

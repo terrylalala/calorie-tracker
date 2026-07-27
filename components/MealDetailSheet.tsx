@@ -7,10 +7,12 @@ import { FoodEntry } from "@/lib/types";
 export default function MealDetailSheet({
   entry,
   onDelete,
+  onEdit,
   onClose,
 }: {
   entry: FoodEntry;
   onDelete: (id: string) => void;
+  onEdit: (entry: FoodEntry) => void;
   onClose: () => void;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -123,8 +125,8 @@ export default function MealDetailSheet({
               <button className="btn" onClick={() => setConfirming(true)}>
                 Delete
               </button>
-              <button className="btn primary" onClick={onClose}>
-                Done
+              <button className="btn primary" onClick={() => onEdit(entry)}>
+                Edit
               </button>
             </div>
           )}
