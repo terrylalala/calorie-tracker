@@ -43,6 +43,17 @@ export interface FoodEntry extends Macros {
   note?: string;
 }
 
+/** A single body-weight reading. */
+export interface WeightEntry {
+  id: string;
+  /** ISO timestamp of the reading. */
+  timestamp: string;
+  /** Local calendar date key, YYYY-MM-DD. */
+  date: string;
+  /** Weight in kilograms. */
+  kg: number;
+}
+
 /** Daily nutrition targets. */
 export interface Goals {
   calories: number;

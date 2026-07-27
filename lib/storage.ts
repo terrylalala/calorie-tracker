@@ -1,4 +1,4 @@
-import { FoodEntry, Goals, DEFAULT_GOALS } from "./types";
+import { FoodEntry, Goals, WeightEntry, DEFAULT_GOALS } from "./types";
 import { Profile } from "./goalsCalc";
 
 // Versioned localStorage keys so we can migrate later without collisions.
@@ -6,6 +6,7 @@ const ENTRIES_KEY = "act.entries.v1";
 const GOALS_KEY = "act.goals.v1";
 const PASSWORD_KEY = "act.pw.v1";
 const PROFILE_KEY = "act.profile.v1";
+const WEIGHTS_KEY = "act.weights.v1";
 
 function isBrowser(): boolean {
   return typeof window !== "undefined" && !!window.localStorage;
@@ -30,6 +31,30 @@ export function saveEntries(entries: FoodEntry[]): void {
   if (!isBrowser()) return;
   try {
     window.localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries));
+  } catch {
+    // Storage may be full or blocked (private mode); fail silently.
+  }
+}
+
+// ---- Weights ----
+
+export function loadWeights(): WeightEntry[] {
+  if (!isBrowser()) return [];
+  try {
+    const raw = window.localStorage.getItem(WEIGHTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as WeightEntry[];
+  } catch {
+    return [];
+  }
+}
+
+export function saveWeights(weights: WeightEntry[]): void {
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.setItem(WEIGHTS_KEY, JSON.stringify(weights));
   } catch {
     // Storage may be full or blocked (private mode); fail silently.
   }

@@ -1,4 +1,4 @@
-import { FoodEntry, Goals, DEFAULT_GOALS } from "./types";
+import { FoodEntry, Goals, WeightEntry, DEFAULT_GOALS } from "./types";
 import { Profile } from "./goalsCalc";
 import { apiHeaders } from "./api";
 import {
@@ -8,6 +8,8 @@ import {
   saveGoals,
   loadProfile,
   saveProfile,
+  loadWeights,
+  saveWeights,
 } from "./storage";
 
 /**
@@ -50,6 +52,7 @@ export async function detectMode(): Promise<StorageMode> {
 
 export interface LoadedData {
   entries: FoodEntry[];
+  weights: WeightEntry[];
   goals: Goals;
   /** Set when we wanted the DB but couldn't reach it. */
   error?: string;
@@ -64,13 +67,14 @@ export interface LoadedData {
  */
 export async function loadAll(mode: StorageMode): Promise<LoadedData> {
   if (mode === "local") {
-    return { entries: loadEntries(), goals: loadGoals(), mode: "local" };
+    return { entries: loadEntries(), weights: loadWeights(), goals: loadGoals(), mode: "local" };
   }
 
   try {
-    const [entriesRes, settingsRes] = await Promise.all([
+    const [entriesRes, settingsRes, weightsRes] = await Promise.all([
       fetch("/api/entries", { headers: apiHeaders() }),
       fetch("/api/settings", { headers: apiHeaders() }),
+      fetch("/api/weights", { headers: apiHeaders() }),
     ]);
 
     if (!entriesRes.ok) {
@@ -78,11 +82,18 @@ export async function loadAll(mode: StorageMode): Promise<LoadedData> {
       // Fall back to local so the app still works (e.g. wrong access password).
       return {
         entries: loadEntries(),
+        weights: loadWeights(),
         goals: loadGoals(),
         mode: "local",
         error: data.error || "Could not reach the database; showing local data.",
       };
     }
+
+    // Weights are non-critical: if that one call fails, fall back to the local
+    // mirror rather than failing the whole load.
+    const weights: WeightEntry[] = weightsRes.ok
+      ? (await weightsRes.json()).weights ?? []
+      : loadWeights();
 
     let entries: FoodEntry[] = (await entriesRes.json()).entries ?? [];
     let migrated = 0;
@@ -130,12 +141,14 @@ export async function loadAll(mode: StorageMode): Promise<LoadedData> {
 
     // Mirror locally for offline viewing / synchronous readers.
     saveEntries(entries);
+    saveWeights(weights);
     saveGoals(goals);
 
-    return { entries, goals, mode: "db", migrated };
+    return { entries, weights, goals, mode: "db", migrated };
   } catch {
     return {
       entries: loadEntries(),
+      weights: loadWeights(),
       goals: loadGoals(),
       mode: "local",
       error: "Could not reach the database; showing local data.",
@@ -188,6 +201,36 @@ export async function removeEntry(
     headers: apiHeaders(),
   });
   if (!res.ok) throw new Error("Could not delete from the database.");
+}
+
+/** Persist a new weight reading. Mirrors to localStorage. */
+export async function addWeight(
+  mode: StorageMode,
+  entry: WeightEntry,
+  next: WeightEntry[],
+): Promise<void> {
+  saveWeights(next);
+  if (mode !== "db") return;
+  const res = await fetch("/api/weights", {
+    method: "POST",
+    headers: apiHeaders(),
+    body: JSON.stringify({ entry }),
+  });
+  if (!res.ok) throw new Error("Could not save the weight to the database.");
+}
+
+export async function removeWeight(
+  mode: StorageMode,
+  id: string,
+  next: WeightEntry[],
+): Promise<void> {
+  saveWeights(next);
+  if (mode !== "db") return;
+  const res = await fetch(`/api/weights?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    headers: apiHeaders(),
+  });
+  if (!res.ok) throw new Error("Could not delete the weight from the database.");
 }
 
 export async function putSettings(

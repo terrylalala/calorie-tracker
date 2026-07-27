@@ -1183,3 +1183,124 @@
   color: var(--v2-ink-soft);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- weight tracking (Settings) ----------
+ * Scoped under .v2 like the rest of the file. On Settings, --v2-tab-hue is the
+ * amber the tab already uses, so the chart and the "warn" note stay on-palette;
+ * "ok" gets its own green because "on track" reads better as a distinct colour. */
+.v2 .weight-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-top: -2px;
+}
+.v2 .weight-now {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: color-mix(in srgb, var(--v2-tab-hue, #f79318) 80%, #000);
+}
+.v2 .weight-unit {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--v2-ink-soft);
+}
+.v2 .weight-date {
+  font-size: 0.8rem;
+  color: var(--v2-ink-faint);
+  margin-top: 4px;
+}
+.v2 .weight-delta {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: right;
+  color: var(--v2-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.v2 .weight-delta.down { color: #0d8f89; }
+.v2 .weight-delta.up { color: #e0567c; }
+.v2 .weight-delta-sub {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--v2-ink-faint);
+}
+
+.v2 .weight-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 14px 0 2px;
+}
+.v2 .weight-chart text {
+  font-size: 9px;
+  fill: var(--v2-ink-faint);
+  font-weight: 600;
+}
+.v2 .weight-chart-latest {
+  fill: color-mix(in srgb, var(--v2-tab-hue, #f79318) 82%, #000);
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.v2 .weight-check {
+  margin-top: 14px;
+  padding: 10px 13px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.v2 .weight-check.ok {
+  background: color-mix(in srgb, #10b981 13%, #fff);
+  color: #0a7a5e;
+}
+.v2 .weight-check.warn {
+  background: color-mix(in srgb, var(--v2-tab-hue, #f79318) 15%, #fff);
+  color: color-mix(in srgb, var(--v2-tab-hue, #f79318) 72%, #000);
+}
+.v2 .weight-check.info {
+  background: var(--v2-bg);
+  color: var(--v2-ink-soft);
+}
+
+.v2 .weight-log {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.v2 .weight-log input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--text);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 1rem;
+}
+.v2 .weight-log input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.v2 .weight-log-unit {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--v2-ink-soft);
+}
+.v2 .weight-log .btn { flex: 0 0 auto; }
+
+.v2 .weight-remove {
+  display: block;
+  margin: 10px auto 0;
+  background: none;
+  border: 0;
+  color: var(--v2-ink-faint);
+  font-family: inherit;
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}

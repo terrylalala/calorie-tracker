@@ -113,6 +113,20 @@ async function initSchema(): Promise<void> {
     )
   `;
 
+  // Body-weight readings over time, for the trend chart and goal check. Its own
+  // table (not user_settings) because it is a growing series, one row per
+  // reading. Additive: existing installs pick it up on the next request.
+  await sql`
+    create table if not exists weights (
+      id      text primary key,
+      user_id text             not null,
+      ts      timestamptz      not null,
+      day     text             not null,
+      kg      double precision not null
+    )
+  `;
+  await sql`create index if not exists weights_user_ts_idx on weights (user_id, ts desc)`;
+
   // Daily AI usage counters, for per-user rate limiting.
   await sql`
     create table if not exists usage (

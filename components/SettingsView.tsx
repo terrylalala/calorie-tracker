@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Goals } from "@/lib/types";
+import { Goals, WeightEntry } from "@/lib/types";
 import { loadProfile } from "@/lib/storage";
 import { StorageMode, putSettings } from "@/lib/dataStore";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/lib/goalsCalc";
 import AccountCard from "@/components/AccountCard";
 import GoalAdvisor from "@/components/GoalAdvisor";
+import WeightCard from "@/components/WeightCard";
 
 /**
  * Extracted from app/page.tsx unchanged — see the note in HistoryView for why
@@ -21,10 +22,16 @@ export default function SettingsView({
   goals,
   onSave,
   mode,
+  weights,
+  onLogWeight,
+  onRemoveWeight,
 }: {
   goals: Goals;
   onSave: (g: Goals) => void;
   mode: StorageMode;
+  weights: WeightEntry[];
+  onLogWeight: (kg: number) => void;
+  onRemoveWeight: (id: string) => void;
 }) {
   const [calories, setCalories] = useState(String(goals.calories));
   const [protein, setProtein] = useState(String(goals.protein_g));
@@ -34,10 +41,12 @@ export default function SettingsView({
 
   const [showAdvisor, setShowAdvisor] = useState(false);
   const [direction, setDirection] = useState<GoalDirection>("maintain");
+  const [profileWeight, setProfileWeight] = useState<number | undefined>();
 
   useEffect(() => {
     const p = loadProfile();
     if (p.goal) setDirection(p.goal);
+    if (typeof p.weightKg === "number") setProfileWeight(p.weightKg);
   }, []);
 
   const num = (s: string) => {
@@ -139,6 +148,21 @@ export default function SettingsView({
       <button className="btn primary block" onClick={handleSave}>
         {saved ? "✓ Saved" : "Save changes"}
       </button>
+
+      <WeightCard
+        weights={weights}
+        direction={direction}
+        defaultKg={profileWeight}
+        onLog={onLogWeight}
+        onRemoveLast={() => {
+          const latest = weights.length
+            ? [...weights].sort(
+                (a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp),
+              )[0]
+            : null;
+          if (latest) onRemoveWeight(latest.id);
+        }}
+      />
 
       <AccountCard />
 

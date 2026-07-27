@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./bright.css";
-import { Analysis, DEFAULT_GOALS, FoodEntry, Goals } from "@/lib/types";
+import { Analysis, DEFAULT_GOALS, FoodEntry, Goals, WeightEntry } from "@/lib/types";
 import { apiHeaders } from "@/lib/api";
 import {
   StorageMode,
@@ -10,6 +10,8 @@ import {
   loadAll,
   addEntry as storeAddEntry,
   removeEntry as storeRemoveEntry,
+  addWeight as storeAddWeight,
+  removeWeight as storeRemoveWeight,
 } from "@/lib/dataStore";
 import { buildLogsSummary, dateKey, totalsForDate } from "@/lib/nutrition";
 import { defaultBackfillWhen } from "@/lib/when";
@@ -249,6 +251,7 @@ function Tracker() {
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState("today");
   const [entries, setEntries] = useState<FoodEntry[]>([]);
+  const [weights, setWeights] = useState<WeightEntry[]>([]);
   const [goals, setGoals] = useState<Goals>(DEFAULT_GOALS);
   const [mode, setMode] = useState<StorageMode>("local");
   const [name, setName] = useState<string | null>(null);
@@ -298,6 +301,7 @@ function Tracker() {
       if (cancelled) return;
       setMode(data.mode);
       setEntries(data.entries);
+      setWeights(data.weights);
       setGoals(data.goals);
       if (data.error) setError(data.error);
       // Restored from the previous design. The first load on a new device
@@ -512,6 +516,32 @@ function Tracker() {
       await putSettings(mode, { goals: g, profile: loadProfile() });
     } catch {
       setError("Saved on this device, but couldn't reach the database.");
+    }
+  }
+
+  async function logWeight(kg: number) {
+    const now = new Date();
+    const day = dateKey(now);
+    // A deterministic per-day id means re-logging today overwrites the same row
+    // in both localStorage and the DB (the POST upserts on id) — one clean point
+    // per day, no orphaned second reading to reappear on the next load.
+    const entry: WeightEntry = { id: `w-${day}`, timestamp: now.toISOString(), date: day, kg };
+    const next = [entry, ...weights.filter((w) => w.date !== day)];
+    setWeights(next);
+    try {
+      await storeAddWeight(mode, entry, next);
+    } catch {
+      setError("Saved on this device, but couldn't reach the database.");
+    }
+  }
+
+  async function removeWeight(id: string) {
+    const next = weights.filter((w) => w.id !== id);
+    setWeights(next);
+    try {
+      await storeRemoveWeight(mode, id, next);
+    } catch {
+      setError("Removed on this device, but couldn't reach the database.");
     }
   }
 
@@ -872,7 +902,14 @@ function Tracker() {
       ) : tab === "coach" ? (
         <CoachView logsSummary={logsSummary} hasData={entries.length > 0} />
       ) : (
-        <SettingsView goals={goals} onSave={updateGoals} mode={mode} />
+        <SettingsView
+          goals={goals}
+          onSave={updateGoals}
+          mode={mode}
+          weights={weights}
+          onLogWeight={logWeight}
+          onRemoveWeight={removeWeight}
+        />
       )}
 
       <nav className="v2-nav">
